@@ -1,0 +1,318 @@
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 30 20% 95%;
+    --bg2: 30 18% 90%;
+    --foreground: 228 42% 12%;
+
+    --card: 0 0% 100% / 0.68;
+    --card-foreground: 228 42% 12%;
+    --card-border: 0 0% 100% / 0.92;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 228 42% 12%;
+
+    /* Primary = pink #e7276f */
+    --primary: 342 80% 53%;
+    --primary-foreground: 0 0% 100%;
+    --primary-mid: 342 65% 60%;
+    --primary-light: 342 55% 70%;
+
+    /* Secondary = blue #2991d6 */
+    --secondary: 207 65% 50%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 228 20% 40%;
+
+    --accent: 207 65% 50%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 228 20% 88%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 342 80% 53%;
+
+    --radius: 0.5rem;
+
+    --text-dim: 228 42% 12% / 0.50;
+
+    --shadow-sm: 0 4px 16px hsl(228 42% 12% / 0.08);
+    --shadow-md: 0 12px 40px hsl(228 42% 12% / 0.12);
+    --shadow-lg: 0 32px 80px hsl(228 42% 12% / 0.14);
+    --shadow-primary: 0 8px 28px hsl(342 80% 53% / 0.28);
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'DM Sans', sans-serif;
+    overflow-x: hidden;
+  }
+}
+
+/* Custom scrollbar - slim & classic */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: hsl(var(--foreground) / 0.04);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--foreground) / 0.15);
+  border-radius: 999px;
+  transition: background 0.2s;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--foreground) / 0.28);
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--foreground) / 0.15) transparent;
+}
+
+/* Grid overlay */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(hsl(228 42% 12% / 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, hsl(228 42% 12% / 0.05) 1px, transparent 1px);
+  background-size: 80px 80px;
+}
+
+/* Noise texture */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.025'/%3E%3C/svg%3E");
+}
+
+/* Animations */
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes slideLeft {
+  from { opacity: 0; transform: translateX(24px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes float1 {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+@keyframes float2 {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(8px); }
+}
+@keyframes pulseDot {
+  0%, 100% { opacity: 1; box-shadow: 0 0 8px hsl(var(--primary-mid)); }
+  50% { opacity: 0.6; box-shadow: 0 0 18px hsl(var(--primary-mid)); }
+}
+
+.animate-slide-up {
+  opacity: 0;
+  animation: slideUp 0.7s ease forwards;
+}
+.animate-slide-left {
+  opacity: 0;
+  animation: slideLeft 0.7s ease 0.3s forwards;
+}
+.animate-float1 {
+  animation: float1 4s ease-in-out infinite;
+}
+.animate-float2 {
+  animation: float2 3.5s ease-in-out infinite 0.8s;
+}
+.animate-pulse-dot {
+  animation: pulseDot 2s ease-in-out infinite;
+}
+
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* ── react-date-picker custom styles ── */
+.react-date-picker--custom {
+  width: 100%;
+}
+
+.react-date-picker--custom .react-date-picker__wrapper {
+  width: 100%;
+  padding: 9px 14px;
+  background: rgba(255, 255, 255, 0.45);
+  border: 1px solid hsl(var(--foreground) / 0.09);
+  border-radius: 11px;
+  font-size: 14px;
+  color: hsl(var(--foreground));
+  transition: all 0.2s;
+}
+
+.react-date-picker--custom .react-date-picker__wrapper:hover {
+  border-color: hsl(342 80% 53% / 0.3);
+}
+
+.react-date-picker--custom.react-date-picker--open .react-date-picker__wrapper,
+.react-date-picker--custom .react-date-picker__wrapper:focus-within {
+  border-color: hsl(342 80% 53% / 0.45);
+  background: rgba(255, 255, 255, 0.65);
+  box-shadow: 0 0 0 3px hsl(342 80% 53% / 0.1);
+}
+
+.react-date-picker--custom .react-date-picker__inputGroup {
+  font-size: 14px;
+  font-family: 'DM Sans', sans-serif;
+}
+
+.react-date-picker--custom .react-date-picker__inputGroup__input {
+  color: hsl(var(--foreground));
+  outline: none;
+  font-family: inherit;
+}
+
+.react-date-picker--custom .react-date-picker__inputGroup__input::placeholder {
+  color: hsl(var(--foreground) / 0.2);
+}
+
+.react-date-picker--custom .react-date-picker__inputGroup__leadingZero {
+  color: hsl(var(--foreground));
+}
+
+.react-date-picker--custom .react-date-picker__inputGroup__divider {
+  color: hsl(var(--foreground) / 0.25);
+}
+
+.react-date-picker--custom .react-date-picker__button {
+  color: hsl(var(--foreground) / 0.3);
+  padding: 0 2px;
+}
+
+.react-date-picker--custom .react-date-picker__button:hover {
+  color: hsl(342 80% 53%);
+}
+
+.react-date-picker--custom .react-date-picker__button svg {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+}
+
+/* Calendar dropdown */
+.react-date-picker--custom .react-date-picker__calendar {
+  z-index: 50;
+}
+
+.react-date-picker--custom .react-calendar {
+  background: rgba(255, 255, 255, 0.97);
+  border: 1px solid hsl(var(--foreground) / 0.09);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(20px);
+  font-family: 'DM Sans', sans-serif;
+  padding: 8px;
+  width: 300px;
+}
+
+.react-date-picker--custom .react-calendar__navigation {
+  margin-bottom: 4px;
+}
+
+.react-date-picker--custom .react-calendar__navigation button {
+  font-size: 14px;
+  font-weight: 600;
+  color: hsl(var(--foreground));
+  border-radius: 8px;
+  min-width: 36px;
+  padding: 6px;
+}
+
+.react-date-picker--custom .react-calendar__navigation button:hover {
+  background: hsl(342 80% 53% / 0.06);
+}
+
+.react-date-picker--custom .react-calendar__navigation button:disabled {
+  opacity: 0.3;
+}
+
+.react-date-picker--custom .react-calendar__month-view__weekdays {
+  font-size: 11px;
+  font-weight: 600;
+  color: hsl(var(--foreground) / 0.4);
+  text-transform: uppercase;
+}
+
+.react-date-picker--custom .react-calendar__month-view__weekdays abbr {
+  text-decoration: none;
+}
+
+.react-date-picker--custom .react-calendar__tile {
+  font-size: 13px;
+  padding: 8px 4px;
+  border-radius: 8px;
+  color: hsl(var(--foreground));
+  transition: all 0.15s;
+}
+
+.react-date-picker--custom .react-calendar__tile:hover {
+  background: hsl(342 80% 53% / 0.08);
+}
+
+.react-date-picker--custom .react-calendar__tile--now {
+  background: hsl(342 80% 53% / 0.08);
+  font-weight: 600;
+}
+
+.react-date-picker--custom .react-calendar__tile--active,
+.react-date-picker--custom .react-calendar__tile--active:hover {
+  background: hsl(342 80% 53%);
+  color: white;
+  font-weight: 600;
+}
+
+.react-date-picker--custom .react-calendar__tile--hasActive {
+  background: hsl(342 80% 53% / 0.12);
+}
+
+.react-date-picker--custom .react-calendar__year-view .react-calendar__tile,
+.react-date-picker--custom .react-calendar__decade-view .react-calendar__tile,
+.react-date-picker--custom .react-calendar__century-view .react-calendar__tile {
+  padding: 12px 4px;
+  font-size: 13px;
+  border-radius: 8px;
+}
+
+.react-date-picker--custom .react-calendar__tile:disabled {
+  color: hsl(var(--foreground) / 0.15);
+  background: transparent;
+}
