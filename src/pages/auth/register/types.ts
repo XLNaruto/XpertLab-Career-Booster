@@ -1,26 +1,32 @@
 export interface Guardian {
-  type: string;
+  traineeguardiandetailId: string;
+  guardianType: string;
   relation: string;
   firstName: string;
   lastName: string;
-  mobile1: string;
-  mobile2: string;
+  mobileNumber: string;
+  mobileNumber2: string;
 }
 
 export interface Education {
+  traineeeducationdetailId: string;
   educationType: string;
   education: string;
-  board: string;
-  institute: string;
-  passingYear: Date | null;
-  academicYear: Date | null;
+  boardId: string;
+  instituteId: string;
+  passingYear: string;
   percentage: string;
-  educationCompleted: boolean;
-  educationDocument: File | null;
+  isCompleted: string;
+  document: string;
+  url: string;
 }
 
 export interface RegisterFormData {
+  // Server-issued after step 1 save
+  traineeId: string;
+
   // Step 1: Personal Details
+  prefix: string;
   firstName: string;
   middleName: string;
   lastName: string;
@@ -34,8 +40,8 @@ export interface RegisterFormData {
   confirmPassword: string;
 
   // Step 2: Location Details
-  state: string;
-  city: string;
+  stateId: string;
+  cityId: string;
   address: string;
 
   // Step 3: Guardian Details

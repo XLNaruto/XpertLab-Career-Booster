@@ -316,3 +316,85 @@ body::before {
   color: hsl(var(--foreground) / 0.15);
   background: transparent;
 }
+
+/* ── react-phone-input-2 custom styles ── */
+.phone-input--custom {
+  width: 100% !important;
+  font-family: 'DM Sans', sans-serif;
+}
+
+.phone-input--custom .form-control {
+  width: 100% !important;
+  height: 41px !important;
+  padding: 9px 14px 9px 52px !important;
+  background: rgba(255, 255, 255, 0.45) !important;
+  border: 1px solid hsl(var(--foreground) / 0.09) !important;
+  border-radius: 11px !important;
+  font-size: 14px !important;
+  color: hsl(var(--foreground)) !important;
+  transition: all 0.2s;
+}
+
+.phone-input--custom .form-control::placeholder {
+  color: hsl(var(--foreground) / 0.2);
+}
+
+.phone-input--custom .form-control:hover {
+  border-color: hsl(342 80% 53% / 0.3) !important;
+}
+
+.phone-input--custom .form-control:focus {
+  border-color: hsl(342 80% 53% / 0.45) !important;
+  background: rgba(255, 255, 255, 0.65) !important;
+  box-shadow: 0 0 0 3px hsl(342 80% 53% / 0.1) !important;
+  outline: none !important;
+}
+
+.phone-input--custom .flag-dropdown {
+  background: transparent !important;
+  border: 1px solid hsl(var(--foreground) / 0.09) !important;
+  border-right: none !important;
+  border-radius: 11px 0 0 11px !important;
+}
+
+.phone-input--custom .flag-dropdown.open,
+.phone-input--custom .flag-dropdown:hover,
+.phone-input--custom .selected-flag:hover,
+.phone-input--custom .selected-flag:focus,
+.phone-input--custom .flag-dropdown.open .selected-flag {
+  background: rgba(255, 255, 255, 0.65) !important;
+  border-radius: 11px 0 0 11px !important;
+}
+
+.phone-input--custom .selected-flag {
+  border-radius: 11px 0 0 11px !important;
+  padding-left: 12px !important;
+  width: 44px !important;
+}
+
+.phone-input--custom .country-list {
+  border-radius: 11px !important;
+  border: 1px solid hsl(var(--foreground) / 0.09) !important;
+  background: rgba(255, 255, 255, 0.95) !important;
+  backdrop-filter: blur(20px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08) !important;
+  margin-top: 4px !important;
+  font-size: 13px;
+}
+
+.phone-input--custom .country-list .country.highlight,
+.phone-input--custom .country-list .country:hover {
+  background: hsl(342 80% 53% / 0.08) !important;
+}
+
+.phone-input--custom .country-list .search {
+  padding: 8px 10px !important;
+}
+
+.phone-input--custom .country-list .search-box {
+  border: 1px solid hsl(var(--foreground) / 0.09) !important;
+  border-radius: 8px !important;
+  padding: 6px 10px !important;
+  font-size: 13px !important;
+  width: calc(100% - 20px);
+}

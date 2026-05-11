@@ -1,12 +1,14 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useForm, FormProvider } from "react-hook-form";
 import { motion } from "motion/react";
+import { Lock } from "lucide-react";
 import AnimatedBackground from "@/components/AnimatedBackground";
 import InteractiveBackground from "@/components/InteractiveBackground";
 import { ChevronRight, ChevronLeft } from "lucide-react";
-import { toAbsoluteUrl } from "@/utils/reusable";
+import { decryptUrlData, encryptUrlData, toAbsoluteUrl, toasterrormsg } from "@/utils/reusable";
 import { PersonalDetails, LocationDetails, GuardianDetails, EducationDetails, CourseDetails, Documents } from "./register";
+import type { StepHandle } from "./register";
 import type { RegisterFormData } from "./register";
 
 const steps = [
@@ -19,39 +21,118 @@ const steps = [
 ];
 
 const stepComponents: Record<number, React.FC> = {
-  1: PersonalDetails,
-  2: LocationDetails,
-  3: GuardianDetails,
-  4: EducationDetails,
   5: CourseDetails,
   6: Documents,
 };
 
 const Register = () => {
-  const [step, setStep] = useState(1);
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const initialPayload: any = (() => {
+    const raw = searchParams.get("data");
+    if (!raw) return {};
+    try {
+      return decryptUrlData(raw) || {};
+    } catch {
+      return {};
+    }
+  })();
+  const initialStep = Math.min(Math.max(parseInt(String(initialPayload.step || "1"), 10) || 1, 1), 6);
+  const initialTraineeId = String(initialPayload.traineeId || "");
+
+  const [step, setStepState] = useState(initialStep);
+  const [completedStep, setCompletedStep] = useState(initialTraineeId ? Math.max(initialStep - 1, 1) : 0);
+  const [loading, setLoading] = useState(false);
+
+  const writeUrl = (n: number, traineeId?: string) => {
+    const id = traineeId ?? methods.getValues("traineeId");
+    const payload: Record<string, any> = { step: n };
+    if (id) payload.traineeId = id;
+    setSearchParams({ data: encryptUrlData(payload) || "" }, { replace: true });
+  };
+
+  const goToStep = (n: number) => {
+    setStepState(n);
+    writeUrl(n);
+  };
 
   const methods = useForm<RegisterFormData>({
+    mode: "onSubmit",
+    reValidateMode: "onSubmit",
     defaultValues: {
-      firstName: "", middleName: "", lastName: "",
+      traineeId: "",
+      prefix: "Mr.", firstName: "", middleName: "", lastName: "",
       gender: "", birthDate: null, email: "",
       mobile1: "", mobile2: "",
       userName: "", password: "", confirmPassword: "",
-      state: "", city: "", address: "",
-      guardians: [{ type: "", relation: "", firstName: "", lastName: "", mobile1: "", mobile2: "" }],
-      educations: [{ educationType: "", education: "", board: "", institute: "", passingYear: null, academicYear: null, percentage: "", educationCompleted: true, educationDocument: null }],
+      stateId: "", cityId: "", address: "",
+      guardians: [{ traineeguardiandetailId: "", guardianType: "", relation: "", firstName: "", lastName: "", mobileNumber: "", mobileNumber2: "" }],
+      educations: [{ traineeeducationdetailId: "", educationType: "", education: "", boardId: "", instituteId: "", passingYear: "", percentage: "", isCompleted: "0", document: "", url: "" }],
       course: "", traineeArea: "", batchDay: "", batchTime: "",
       joiningDate: null, device: "", computer: "",
       aadharNumber: "", documents: [null, null, null],
     },
   });
 
+  const personalRef = useRef<StepHandle | null>(null);
+  const locationRef = useRef<StepHandle | null>(null);
+  const guardianRef = useRef<StepHandle | null>(null);
+  const educationRef = useRef<StepHandle | null>(null);
+
+  useEffect(() => {
+    if (initialTraineeId) methods.setValue("traineeId", initialTraineeId);
+  }, []);
+
+  const handleSaved = (savedTraineeId?: string) => {
+    setCompletedStep((prev) => Math.max(prev, step));
+    setStepState(step + 1);
+    writeUrl(step + 1, savedTraineeId);
+  };
+
+  const handleNext = async () => {
+    if (step === 1) {
+      setLoading(true);
+      await personalRef.current?.save();
+      setLoading(false);
+      return;
+    }
+    if (step === 2) {
+      setLoading(true);
+      await locationRef.current?.save();
+      setLoading(false);
+      return;
+    }
+    if (step === 3) {
+      setLoading(true);
+      await guardianRef.current?.save();
+      setLoading(false);
+      return;
+    }
+    if (step === 4) {
+      setLoading(true);
+      await educationRef.current?.save();
+      setLoading(false);
+      return;
+    }
+    setCompletedStep((prev) => Math.max(prev, step));
+    goToStep(step + 1);
+  };
+
+  const handleSidebarClick = (target: number) => {
+    if (target <= completedStep + 1) {
+      goToStep(target);
+    } else {
+      toasterrormsg("Please complete the current step first");
+    }
+  };
+
   const onSubmit = (data: RegisterFormData) => {
     console.log(data);
     navigate("/dashboard");
   };
 
-  const StepComponent = stepComponents[step];
+  const StepComponent = stepComponents[step] ?? null;
 
   return (
     <>
@@ -88,24 +169,31 @@ const Register = () => {
             </motion.p>
 
             <div className="flex flex-col gap-2">
-              {steps.map((s, i) => (
-                <motion.button
-                  key={s.num}
-                  initial={{ opacity: 0, x: -25 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ duration: 0.5, delay: 0.35 + i * 0.1, ease: "easeOut" }}
-                  onClick={() => setStep(s.num)}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-300 ${step === s.num ? "bg-white/[0.7] border border-white/[0.9] shadow-[var(--shadow-sm)]" : step > s.num ? "bg-white/[0.3] border border-transparent" : "border border-transparent opacity-60"}`}
-                >
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${step === s.num ? "bg-gradient-to-br from-primary to-primary-light text-primary-foreground shadow-[var(--shadow-primary)]" : step > s.num ? "bg-green-500 text-white" : "bg-foreground/[0.08] text-muted-foreground"}`}>
-                    {step > s.num ? "✓" : s.num}
-                  </div>
-                  <div>
-                    <div className={`text-[13px] font-semibold ${step >= s.num ? "text-foreground" : "text-muted-foreground"}`}>{s.title}</div>
-                    <div className="text-[11px] text-muted-foreground">{s.desc}</div>
-                  </div>
-                </motion.button>
-              ))}
+              {steps.map((s, i) => {
+                const locked = s.num > completedStep + 1;
+                const isCompleted = s.num <= completedStep;
+                return (
+                  <motion.button
+                    key={s.num}
+                    type="button"
+                    initial={{ opacity: 0, x: -25 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.5, delay: 0.35 + i * 0.1, ease: "easeOut" }}
+                    onClick={() => handleSidebarClick(s.num)}
+                    disabled={locked}
+                    aria-disabled={locked}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-300 ${step === s.num ? "bg-white/[0.7] border border-white/[0.9] shadow-[var(--shadow-sm)]" : isCompleted ? "bg-white/[0.3] border border-transparent" : "border border-transparent opacity-60"} ${locked ? "cursor-not-allowed" : "cursor-pointer"}`}
+                  >
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${step === s.num ? "bg-gradient-to-br from-primary to-primary-light text-primary-foreground shadow-[var(--shadow-primary)]" : isCompleted ? "bg-green-500 text-white" : "bg-foreground/[0.08] text-muted-foreground"}`}>
+                      {isCompleted ? "✓" : locked ? <Lock className="w-3.5 h-3.5" /> : s.num}
+                    </div>
+                    <div>
+                      <div className={`text-[13px] font-semibold ${step === s.num || isCompleted ? "text-foreground" : "text-muted-foreground"}`}>{s.title}</div>
+                      <div className="text-[11px] text-muted-foreground">{s.desc}</div>
+                    </div>
+                  </motion.button>
+                );
+              })}
             </div>
           </div>
 
@@ -134,13 +222,23 @@ const Register = () => {
 
               <FormProvider {...methods}>
                 <form onSubmit={methods.handleSubmit(onSubmit)}>
-                  <StepComponent />
+                  {step === 1 ? (
+                    <PersonalDetails ref={personalRef} onSaved={() => handleSaved(methods.getValues("traineeId"))} />
+                  ) : step === 2 ? (
+                    <LocationDetails ref={locationRef} onSaved={() => handleSaved()} />
+                  ) : step === 3 ? (
+                    <GuardianDetails ref={guardianRef} onSaved={() => handleSaved()} />
+                  ) : step === 4 ? (
+                    <EducationDetails ref={educationRef} onSaved={() => handleSaved()} />
+                  ) : StepComponent ? (
+                    <StepComponent />
+                  ) : null}
 
                   {/* Buttons */}
                   <div className="flex gap-3 mt-8">
                     <button
                       type="button"
-                      onClick={() => step === 1 ? navigate("/login") : setStep(step - 1)}
+                      onClick={() => step === 1 ? navigate("/login") : goToStep(step - 1)}
                       className="flex-1 py-[14px] bg-white/[0.65] border border-foreground/[0.12] text-foreground rounded-[11px] text-sm font-semibold hover:bg-white/[0.85] transition-all duration-200 flex items-center justify-center gap-2"
                     >
                       <ChevronLeft className="w-4 h-4" /> Back
@@ -148,10 +246,11 @@ const Register = () => {
                     {step < 6 ? (
                       <button
                         type="button"
-                        onClick={() => setStep(step + 1)}
-                        className="flex-1 py-[14px] bg-gradient-to-br from-primary to-primary-light text-primary-foreground rounded-[11px] text-[15px] font-bold shadow-[var(--shadow-primary)] hover:shadow-[0_12px_36px_hsl(342_80%_53%/0.5)] hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300 flex items-center justify-center gap-2"
+                        onClick={handleNext}
+                        disabled={loading}
+                        className="flex-1 py-[14px] bg-gradient-to-br from-primary to-primary-light text-primary-foreground rounded-[11px] text-[15px] font-bold shadow-[var(--shadow-primary)] hover:shadow-[0_12px_36px_hsl(342_80%_53%/0.5)] hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
                       >
-                        Save & Next <ChevronRight className="w-4 h-4" />
+                        {loading ? "Saving..." : <>Save & Next <ChevronRight className="w-4 h-4" /></>}
                       </button>
                     ) : (
                       <button

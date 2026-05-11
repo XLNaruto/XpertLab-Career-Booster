@@ -1,168 +1,212 @@
 import axios from 'axios';
-import { getEncodedCookie } from './reusable';
-import { clearCookies } from './CookieComponent';
+import { clearCookies, getCookie } from './CookieComponent';
+import { decrypt, decryptData, eLevel, encryptData, getEncodedCookie } from './reusable';
 
-const appStage = import.meta.env.VITE_APP_STAGE || '';
+export const URL = {
+  apibaseurl: import.meta.env.VITE_APP_API_URL
+};
 
-const URL = {
-  uatgogagnerurl: import.meta.env[`VITE_APP_${appStage.toUpperCase()}_API_URL`]
+export const public_token = {
+  token: import.meta.env.VITE_APP_API_TOKEN
 };
 
 export const Securitykey = import.meta.env.VITE_APP_ENCRYPT_KEY || '';
 
+const handleAuthFailure = () => {
+  clearCookies();
+  sessionStorage.clear();
+  location.reload();
+};
+
 // API HEADER
-export const apiHeader = (isFormData: any) => {
-  const authToken = '';
-  const token = getEncodedCookie('token') || '';
+export const apiHeader = (isFormData: any, encryptionLevel: any = 0) => {
+    const token = getEncodedCookie('token') || '';
 
   if (!isFormData) {
     return {
       headers: {
-        'x-authorization': authToken,
+        'x-authorization': `Token ${public_token.token}`,
         'x-token': token,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'Access-Control-Allow-Origin': '*',
+        elevel: encryptionLevel
       }
     };
   }
 
-  if (isFormData) {
-    return {
+  return {
+    headers: {
+      'x-authorization': `Token ${public_token.token}`,
+      'x-token': token,
+      'Content-Type': 'multipart/form-data',
+      elevel: encryptionLevel
+    }
+  };
+};
+
+// API CALL for public POST (no auth)
+export const postDataNoAccess = async (api: any, data: any, encryptionLevel: any = 0) => {
+  try {
+    const headers = {
       headers: {
-        'x-token': token,
-        'x-authorization': authToken,
-        'Content-Type': 'multipart/form-data'
+        'x-authorization': `Token ${public_token.token}`,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'Access-Control-Allow-Origin': '*',
+        elevel: encryptionLevel
       }
     };
+
+    const url = `${URL.apibaseurl}${api}`;
+
+    if (!(data instanceof FormData)) {
+      data = encryptData(data, eLevel[encryptionLevel]);
+    }
+
+    const response = await axios.post(url, data, headers);
+
+    if (String(response?.status) === '200') {
+      const elevel = response.headers['x-elevel'] || 0;
+      response.data = decryptData(response.data, eLevel[elevel]);
+    }
+
+    return response;
+  } catch (error: any) {
+    console.error('Error in postDataNoAccess:', error.message);
+    return undefined;
   }
 };
 
 // API CALL for POST method
-export const postData = async (api: any, data: any, headers: any, showAlert = true) => {
+export const postData = async (api: string, data: any, headers: any) => {
   try {
-    const url = `${URL.uatgogagnerurl}${api}`;
+    const url = `${URL.apibaseurl}${api}`;
+
+    if (!(data instanceof FormData)) {
+      data = encryptData(data, eLevel[headers.headers.elevel]);
+    }
 
     const response = await axios.post(url, data, headers);
 
-    if (['401', '403'].includes(String(response?.status))) {
-      clearCookies();
-      sessionStorage.clear();
-      location.reload();
+    if (String(response?.status) === '200') {
+      const elevel = response.headers['x-elevel'] || 0;
+      const responseData = decryptData(response.data, eLevel[elevel]);
+      response.data = responseData;
+
+      if (['401', '403'].includes(String(responseData?.status))) {
+        handleAuthFailure();
+      }
     }
+
     return response;
   } catch (error: any) {
-    console.log('error ==============++==+=======+==+', error.message);
-    console.log('error ==============++==+=======+==+', error);
-    if (['401', '403'].includes(String(error?.response?.status))) {
-      clearCookies();
-      sessionStorage.clear();
-      location.reload();
-    }
-    return error?.response;
+    console.error('Error in postData:', error.message);
+    return undefined;
   }
 };
 
 // API CALL for GET method
-export const getData = async (api: any, params: any, headers: any, showAlert = true) => {
+export const getData = async (api: string, params: any, headers: any) => {
   try {
-    const url = `${URL.uatgogagnerurl}${api}`;
+    const url = `${URL.apibaseurl}${api}`;
+    const response = await axios.get(url, { params, headers: headers.headers });
 
-    const response = await axios.get(url, {
-      params: params,
-      headers: headers['headers']
-    });
+    if (String(response?.status) === '200') {
+      const elevel = response.headers['x-elevel'] || 0;
+      const responseData = decryptData(response.data, eLevel[elevel]);
+      response.data = responseData;
 
-    if (['401', '403'].includes(String(response?.status))) {
-      clearCookies();
-      sessionStorage.clear();
-      location.reload();
+      if (['401', '403'].includes(String(responseData?.status))) {
+        handleAuthFailure();
+      }
     }
     return response;
   } catch (error: any) {
-    console.log('Error:', error.message);
-    if (['401', '403'].includes(String(error?.response?.status))) {
-      clearCookies();
-      sessionStorage.clear();
-      location.reload();
-    }
-    return error?.response;
+    console.error('Error in getData:', error.message);
+    return undefined;
   }
 };
 
 // API CALL for PATCH method
-export const patchData = async (api: any, data: any, headers: any, showAlert = true) => {
+export const patchData = async (api: string, data: any, headers: any) => {
   try {
-    const url = `${URL.uatgogagnerurl}${api}`;
+    const url = `${URL.apibaseurl}${api}`;
+
+    if (!(data instanceof FormData)) {
+      data = encryptData(data, eLevel[headers.headers.elevel]);
+    }
 
     const response = await axios.patch(url, data, headers);
 
-    if (['401', '403'].includes(String(response?.status))) {
-      clearCookies();
-      sessionStorage.clear();
-      location.reload();
+    if (String(response?.status) === '200') {
+      const elevel = response.headers['x-elevel'] || 0;
+      const responseData = decryptData(response.data, eLevel[elevel]);
+      response.data = responseData;
+
+      if (['401', '403'].includes(String(responseData?.status))) {
+        handleAuthFailure();
+      }
     }
 
     return response;
   } catch (error: any) {
-    console.log('Error:', error.message);
-    console.log('Error:::::::::::::::::::::::::::::::::', error);
-    if (['401', '403'].includes(String(error?.response?.status))) {
-      clearCookies();
-      sessionStorage.clear();
-      location.reload();
-    }
-    return error?.response;
+    console.error('Error in patchData:', error.message);
+    return undefined;
   }
 };
 
 // API CALL for PUT method
-export const putData = async (api: any, data: any, headers: any, showAlert = true) => {
+export const putData = async (api: string, data: any, headers: any) => {
   try {
-    const url = `${URL.uatgogagnerurl}${api}`;
+    const url = `${URL.apibaseurl}${api}`;
+
+    if (!(data instanceof FormData)) {
+      data = encryptData(data, eLevel[headers.headers.elevel]);
+    }
 
     const response = await axios.put(url, data, headers);
 
-    if (['401', '403'].includes(String(response?.status))) {
-      clearCookies();
-      sessionStorage.clear();
-      location.reload();
+    if (String(response?.status) === '200') {
+      const elevel = response.headers['x-elevel'] || 0;
+      const responseData = decryptData(response.data, eLevel[elevel]);
+      response.data = responseData;
+
+      if (['401', '403'].includes(String(responseData?.status))) {
+        handleAuthFailure();
+      }
     }
     return response;
   } catch (error: any) {
-    console.log('Error:', error.message);
-    if (['401', '403'].includes(String(error?.response?.status))) {
-      clearCookies();
-      sessionStorage.clear();
-      location.reload();
-    }
-    return error?.response;
+    console.error('Error in putData:', error.message);
+    return undefined;
   }
 };
 
 // API CALL for DELETE method
-export const deleteData = async (api: any, data: any, headers: any, showAlert = true) => {
+export const deleteData = async (api: string, data: any, headers: any) => {
   try {
-    const url = `${URL.uatgogagnerurl}${api}`;
+    const url = `${URL.apibaseurl}${api}`;
 
-    const response = await axios.delete(url, {
-      data,
-      ...headers
-    });
-
-    if (['401', '403'].includes(String(response?.status))) {
-      clearCookies();
-      sessionStorage.clear();
-      location.reload();
+    if (data && !(data instanceof FormData)) {
+      data = encryptData(data, eLevel[headers.headers.elevel]);
     }
+
+    const response = await axios.delete(url, { data, headers: headers.headers });
+
+    if (String(response?.status) === '200') {
+      const elevel = response.headers['x-elevel'] || 0;
+      const responseData = decryptData(response.data, eLevel[elevel]);
+      response.data = responseData;
+
+      if (['401', '403'].includes(String(responseData?.status))) {
+        handleAuthFailure();
+      }
+    }
+
     return response;
   } catch (error: any) {
-    console.log('Error:', error.message);
-
-    if (['401', '403'].includes(String(error?.response?.status))) {
-      clearCookies();
-      sessionStorage.clear();
-      location.reload();
-    }
-
-    return error?.response;
+    console.error('Error in deleteData:', error.message);
+    return undefined;
   }
 };
