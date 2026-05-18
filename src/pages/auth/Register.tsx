@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useForm, FormProvider } from "react-hook-form";
-import { motion } from "motion/react";
-import { Lock } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
+import { Lock, CheckCircle2 } from "lucide-react";
 import AnimatedBackground from "@/components/AnimatedBackground";
 import InteractiveBackground from "@/components/InteractiveBackground";
 import { ChevronRight, ChevronLeft } from "lucide-react";
@@ -19,11 +19,6 @@ const steps = [
   { num: 5, title: "Course Details", desc: "Course & batch selection" },
   { num: 6, title: "Documents", desc: "ID & document uploads" },
 ];
-
-const stepComponents: Record<number, React.FC> = {
-  5: CourseDetails,
-  6: Documents,
-};
 
 const Register = () => {
   const navigate = useNavigate();
@@ -42,8 +37,9 @@ const Register = () => {
   const initialTraineeId = String(initialPayload.traineeId || "");
 
   const [step, setStepState] = useState(initialStep);
-  const [completedStep, setCompletedStep] = useState(initialTraineeId ? Math.max(initialStep - 1, 1) : 0);
+  const [completedStep, setCompletedStep] = useState(initialTraineeId ? steps.length : 0);
   const [loading, setLoading] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
 
   const writeUrl = (n: number, traineeId?: string) => {
     const id = traineeId ?? methods.getValues("traineeId");
@@ -69,9 +65,9 @@ const Register = () => {
       stateId: "", cityId: "", address: "",
       guardians: [{ traineeguardiandetailId: "", guardianType: "", relation: "", firstName: "", lastName: "", mobileNumber: "", mobileNumber2: "" }],
       educations: [{ traineeeducationdetailId: "", educationType: "", education: "", boardId: "", instituteId: "", passingYear: "", percentage: "", isCompleted: "0", document: "", url: "" }],
-      course: "", traineeArea: "", batchDay: "", batchTime: "",
-      joiningDate: null, device: "", computer: "",
-      aadharNumber: "", documents: [null, null, null],
+      traineecourseId: "", course: "", enrollmentType: "", traineeArea: "", batchDay: "", batchTime: "",
+      joiningDate: null, hasLaptop: null, computerId: "",
+      aadharNumber: "", documents: [],
     },
   });
 
@@ -79,13 +75,16 @@ const Register = () => {
   const locationRef = useRef<StepHandle | null>(null);
   const guardianRef = useRef<StepHandle | null>(null);
   const educationRef = useRef<StepHandle | null>(null);
+  const courseRef = useRef<StepHandle | null>(null);
+  const documentsRef = useRef<StepHandle | null>(null);
 
   useEffect(() => {
     if (initialTraineeId) methods.setValue("traineeId", initialTraineeId);
   }, []);
 
   const handleSaved = (savedTraineeId?: string) => {
-    setCompletedStep((prev) => Math.max(prev, step));
+    const hasTraineeId = !!(savedTraineeId || methods.getValues("traineeId"));
+    setCompletedStep((prev) => Math.max(prev, hasTraineeId ? steps.length : step));
     setStepState(step + 1);
     writeUrl(step + 1, savedTraineeId);
   };
@@ -115,6 +114,12 @@ const Register = () => {
       setLoading(false);
       return;
     }
+    if (step === 5) {
+      setLoading(true);
+      await courseRef.current?.save();
+      setLoading(false);
+      return;
+    }
     setCompletedStep((prev) => Math.max(prev, step));
     goToStep(step + 1);
   };
@@ -132,7 +137,11 @@ const Register = () => {
     navigate("/dashboard");
   };
 
-  const StepComponent = stepComponents[step] ?? null;
+  const handleFinalSubmit = async () => {
+    setLoading(true);
+    await documentsRef.current?.save();
+    setLoading(false);
+  };
 
   return (
     <>
@@ -230,8 +239,16 @@ const Register = () => {
                     <GuardianDetails ref={guardianRef} onSaved={() => handleSaved()} />
                   ) : step === 4 ? (
                     <EducationDetails ref={educationRef} onSaved={() => handleSaved()} />
-                  ) : StepComponent ? (
-                    <StepComponent />
+                  ) : step === 5 ? (
+                    <CourseDetails ref={courseRef} onSaved={() => handleSaved()} />
+                  ) : step === 6 ? (
+                    <Documents
+                      ref={documentsRef}
+                      onSaved={() => {
+                        setShowSuccess(true);
+                        setTimeout(() => navigate("/login"), 2800);
+                      }}
+                    />
                   ) : null}
 
                   {/* Buttons */}
@@ -254,10 +271,12 @@ const Register = () => {
                       </button>
                     ) : (
                       <button
-                        type="submit"
-                        className="flex-1 py-[14px] bg-gradient-to-br from-primary to-primary-light text-primary-foreground rounded-[11px] text-[15px] font-bold shadow-[var(--shadow-primary)] hover:shadow-[0_12px_36px_hsl(342_80%_53%/0.5)] hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300 flex items-center justify-center gap-2"
+                        type="button"
+                        onClick={handleFinalSubmit}
+                        disabled={loading}
+                        className="flex-1 py-[14px] bg-gradient-to-br from-primary to-primary-light text-primary-foreground rounded-[11px] text-[15px] font-bold shadow-[var(--shadow-primary)] hover:shadow-[0_12px_36px_hsl(342_80%_53%/0.5)] hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
                       >
-                        Save
+                        {loading ? "Saving..." : "Save"}
                       </button>
                     )}
                   </div>
@@ -272,6 +291,63 @@ const Register = () => {
           </div>
         </InteractiveBackground>
       </div>
+
+      <AnimatePresence>
+        {showSuccess && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.4 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-primary/15 via-white/40 to-primary-light/20 backdrop-blur-xl"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.85, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              transition={{ duration: 0.5, ease: "easeOut" }}
+              className="relative flex flex-col items-center gap-5 px-12 py-10 rounded-3xl bg-white/[0.7] border border-white/[0.9] shadow-[var(--shadow-lg)] backdrop-blur-[28px] text-center"
+            >
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ delay: 0.15, duration: 0.5, type: "spring", stiffness: 220, damping: 14 }}
+                className="relative w-20 h-20 rounded-full bg-gradient-to-br from-primary to-primary-light flex items-center justify-center shadow-[var(--shadow-primary)]"
+              >
+                <motion.span
+                  initial={{ scale: 0.8, opacity: 0.6 }}
+                  animate={{ scale: 1.6, opacity: 0 }}
+                  transition={{ delay: 0.35, duration: 1.1, repeat: Infinity, repeatDelay: 0.4 }}
+                  className="absolute inset-0 rounded-full bg-primary/30"
+                />
+                <CheckCircle2 className="w-11 h-11 text-white relative" strokeWidth={2.4} />
+              </motion.div>
+              <motion.h2
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.35, duration: 0.45 }}
+                className="font-serif text-2xl font-bold text-foreground"
+              >
+                Registration Successful
+              </motion.h2>
+              <motion.p
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5, duration: 0.45 }}
+                className="text-sm text-muted-foreground max-w-xs"
+              >
+                Your account has been created. Redirecting you to sign in…
+              </motion.p>
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: "100%" }}
+                transition={{ delay: 0.55, duration: 2.2, ease: "linear" }}
+                className="h-1 rounded-full bg-gradient-to-r from-primary to-primary-light w-full"
+              />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 };

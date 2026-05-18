@@ -51,15 +51,25 @@ export interface RegisterFormData {
   educations: Education[];
 
   // Step 5: Course Details
+  traineecourseId: string;
   course: string;
+  enrollmentType: string;
   traineeArea: string;
   batchDay: string;
   batchTime: string;
   joiningDate: Date | null;
-  device: string;
-  computer: string;
+  hasLaptop: number | null;
+  computerId: string;
 
   // Step 6: Documents
   aadharNumber: string;
-  documents: (File | null)[];
+  documents: TraineeDocument[];
+}
+
+export interface TraineeDocument {
+  traineedocumentId: string;
+  name: string;
+  isCompulsory: number | boolean;
+  document: string;
+  url: string;
 }

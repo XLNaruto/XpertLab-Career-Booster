@@ -13,6 +13,7 @@ import { personalDetailsSchema } from "./schemas";
 import type { RegisterFormData } from "./types";
 import { apiHeader, postData } from "@/utils/ApiHelper";
 import { toasterrormsg, toastsuccessmsg } from "@/utils/reusable";
+import moment from "moment";
 
 export type StepHandle = {
   save: () => Promise<boolean>;
@@ -194,7 +195,7 @@ const PersonalDetails = forwardRef<StepHandle, PersonalDetailsProps>(({ onSaved 
             />
             <input
               {...register("firstName")}
-              placeholder="First Name"
+              placeholder="Ex. Mahendrasingh"
               className="flex-1 min-w-0 bg-transparent px-3 py-2.5 text-sm text-foreground placeholder:text-foreground/20 outline-none rounded-r-[11px]"
             />
           </div>
@@ -206,7 +207,7 @@ const PersonalDetails = forwardRef<StepHandle, PersonalDetailsProps>(({ onSaved 
           <label className={labelClass}>Middle Name <span className="text-primary">*</span></label>
           <div className="relative">
             <div className={iconClass}><User className="w-4 h-4" /></div>
-            <input {...register("middleName")} placeholder="Middle Name" className={inputClass} />
+            <input {...register("middleName")} placeholder="Ex. Pansingh" className={inputClass} />
           </div>
           {errors.middleName && <p className={errorClass}>{errors.middleName.message as string}</p>}
         </div>
@@ -214,7 +215,7 @@ const PersonalDetails = forwardRef<StepHandle, PersonalDetailsProps>(({ onSaved 
           <label className={labelClass}>Last Name <span className="text-primary">*</span></label>
           <div className="relative">
             <div className={iconClass}><User className="w-4 h-4" /></div>
-            <input {...register("lastName")} placeholder="Last Name" className={inputClass} />
+            <input {...register("lastName")} placeholder="Ex. Dhoni" className={inputClass} />
           </div>
           {errors.lastName && <p className={errorClass}>{errors.lastName.message as string}</p>}
         </div>
@@ -246,7 +247,7 @@ const PersonalDetails = forwardRef<StepHandle, PersonalDetailsProps>(({ onSaved 
                 value={field.value}
                 onChange={(val) => field.onChange(val)}
                 format="dd-MM-yyyy"
-                maxDate={new Date()}
+                maxDate={moment().subtract(12, "years").toDate()}
                 dayPlaceholder="dd"
                 monthPlaceholder="mm"
                 yearPlaceholder="yyyy"
@@ -261,7 +262,7 @@ const PersonalDetails = forwardRef<StepHandle, PersonalDetailsProps>(({ onSaved 
           <label className={labelClass}>Email <span className="text-primary">*</span></label>
           <div className="relative">
             <div className={iconClass}><Mail className="w-4 h-4" /></div>
-            <input {...register("email")} placeholder="Ex: dhoni@gmail.com" type="email" className={inputClass} />
+            <input {...register("email")} placeholder="Ex. dhoni@gmail.com" type="email" className={inputClass} />
           </div>
           {errors.email && <p className={errorClass}>{errors.email.message as string}</p>}
         </div>
@@ -279,11 +280,12 @@ const PersonalDetails = forwardRef<StepHandle, PersonalDetailsProps>(({ onSaved 
             render={({ field }) => (
               <PhoneInput
                 country="in"
+                onlyCountries={["in"]}
+                disableDropdown
+                disableCountryCode
                 value={field.value}
                 onChange={(v) => field.onChange(v)}
-                enableSearch
-                disableCountryCode
-                placeholder="98765 43210"
+                placeholder="Ex. 98765 43210"
                 containerClass={phoneInputContainerClass}
                 inputProps={{ name: field.name }}
               />
@@ -299,11 +301,12 @@ const PersonalDetails = forwardRef<StepHandle, PersonalDetailsProps>(({ onSaved 
             render={({ field }) => (
               <PhoneInput
                 country="in"
+                onlyCountries={["in"]}
+                disableDropdown
+                disableCountryCode
                 value={field.value}
                 onChange={(v) => field.onChange(v)}
-                enableSearch
-                disableCountryCode
-                placeholder="98765 43210"
+                placeholder="Ex. 98765 43210"
                 containerClass={phoneInputContainerClass}
                 inputProps={{ name: field.name }}
               />
@@ -321,7 +324,7 @@ const PersonalDetails = forwardRef<StepHandle, PersonalDetailsProps>(({ onSaved 
             <label className={labelClass}>Username <span className="text-primary">*</span></label>
             <div className="relative">
               <div className={iconClass}><User className="w-4 h-4" /></div>
-              <input {...register("userName")} placeholder="Username" className={inputClass} />
+              <input {...register("userName")} placeholder="Ex. mahidhoni7" className={inputClass} />
             </div>
             {errors.userName && <p className={errorClass}>{errors.userName.message as string}</p>}
           </div>
@@ -329,7 +332,7 @@ const PersonalDetails = forwardRef<StepHandle, PersonalDetailsProps>(({ onSaved 
             <label className={labelClass}>Password <span className="text-primary">*</span></label>
             <div className="relative">
               <div className={iconClass}><Lock className="w-4 h-4" /></div>
-              <input {...register("password")} placeholder="Password" type={showPassword ? "text" : "password"} className={`${inputClass} !pr-10`} />
+              <input {...register("password")} placeholder="Ex. ••••••••" type={showPassword ? "text" : "password"} className={`${inputClass} !pr-10`} />
               <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-foreground/25 hover:text-foreground/55 transition-colors p-1">
                 {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
@@ -340,7 +343,7 @@ const PersonalDetails = forwardRef<StepHandle, PersonalDetailsProps>(({ onSaved 
             <label className={labelClass}>Confirm Password <span className="text-primary">*</span></label>
             <div className="relative">
               <div className={iconClass}><Shield className="w-4 h-4" /></div>
-              <input {...register("confirmPassword")} placeholder="Confirm Password" type={showConfirmPassword ? "text" : "password"} className={`${inputClass} !pr-10`} />
+              <input {...register("confirmPassword")} placeholder="Ex. ••••••••" type={showConfirmPassword ? "text" : "password"} className={`${inputClass} !pr-10`} />
               <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-foreground/25 hover:text-foreground/55 transition-colors p-1">
                 {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>

@@ -199,6 +199,74 @@ export const locationDetailsSchema = z.object({
 
 export type LocationDetailsValues = z.infer<typeof locationDetailsSchema>;
 
+export const courseDetailsSchema = z
+  .object({
+    enrollmentType: z.string().trim().min(1, "Please Select Enrollment Type"),
+    course: z.string().trim().min(1, "Please Select Course"),
+    traineeArea: z.string().trim().min(1, "Please Select Trainee Area"),
+    batchDay: z.string().trim().min(1, "Please Select Batch Day"),
+    batchTime: z.string().trim().min(1, "Please Select Batch Time"),
+    joiningDate: z.date({
+      required_error: "Joining Date Is Required",
+      invalid_type_error: "Joining Date Is Required",
+    }),
+    hasLaptop: z
+      .number({
+        required_error: "Please Select Device Availability",
+        invalid_type_error: "Please Select Device Availability",
+      })
+      .refine((v) => v === 0 || v === 1, "Please Select Device Availability"),
+    computerId: z.string().optional().default(""),
+  })
+  .superRefine((d, ctx) => {
+    if (d.hasLaptop === 0 && !d.computerId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["computerId"],
+        message: "Please Select Computer",
+      });
+    }
+  });
+
+export type CourseDetailsValues = z.infer<typeof courseDetailsSchema>;
+
+export const documentsSchema = z
+  .object({
+    aadharNumber: z
+      .string()
+      .trim()
+      .min(1, "Aadhar Card Number Is Required")
+      .regex(/^[0-9]{12}$/, "Please Enter Valid 12 Digit Aadhar Card Number"),
+    documents: z
+      .array(
+        z.object({
+          traineedocumentId: z.string(),
+          name: z.string().optional().default(""),
+          isCompulsory: z.union([z.boolean(), z.number()]).optional().default(0),
+          document: z.string().optional().default(""),
+          url: z.string().optional().default(""),
+        }),
+      )
+      .default([]),
+  })
+  .superRefine((d, ctx) => {
+    d.documents.forEach((doc, idx) => {
+      const compulsory =
+        doc.isCompulsory === true ||
+        doc.isCompulsory === 1 ||
+        String(doc.isCompulsory) === "1";
+      if (compulsory && !doc.document) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["documents", idx, "document"],
+          message: `${doc.name || "Document"} Is Required`,
+        });
+      }
+    });
+  });
+
+export type DocumentsValues = z.infer<typeof documentsSchema>;
+
 export const personalDetailsFieldNames = [
   "prefix",
   "firstName",

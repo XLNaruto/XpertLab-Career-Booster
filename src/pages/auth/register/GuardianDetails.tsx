@@ -254,11 +254,12 @@ const GuardianDetails = forwardRef<StepHandle, GuardianDetailsProps>(({ onSaved 
                     render={({ field }) => (
                       <PhoneInput
                         country="in"
+                        onlyCountries={["in"]}
+                        disableDropdown
+                        disableCountryCode
                         value={field.value}
                         onChange={(v) => field.onChange(v)}
-                        enableSearch
-                        disableCountryCode
-                        placeholder="98765 43210"
+                        placeholder="Ex. 98765 43210"
                         containerClass={phoneInputContainerClass}
                         inputProps={{ name: field.name }}
                       />
@@ -276,11 +277,12 @@ const GuardianDetails = forwardRef<StepHandle, GuardianDetailsProps>(({ onSaved 
                     render={({ field }) => (
                       <PhoneInput
                         country="in"
+                        onlyCountries={["in"]}
+                        disableDropdown
+                        disableCountryCode
                         value={field.value}
                         onChange={(v) => field.onChange(v)}
-                        enableSearch
-                        disableCountryCode
-                        placeholder="98765 43210"
+                        placeholder="Ex. 98765 43210"
                         containerClass={phoneInputContainerClass}
                         inputProps={{ name: field.name }}
                       />
