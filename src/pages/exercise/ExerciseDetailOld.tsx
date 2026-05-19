@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import ApprovalPopup from "@/components/ApprovalPopup";
-import { ChevronRight, Send, ArrowLeft, CheckCircle2, Award } from "lucide-react";
+import { ChevronRight, ChevronLeft, Send, ArrowLeft, CheckCircle2, Award } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 const Lightbox = React.lazy(() => import("yet-another-react-lightbox"));
 import Zoom from "yet-another-react-lightbox/plugins/zoom";
@@ -93,10 +93,8 @@ const ExerciseDetail = () => {
     title: exerciseId?.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) || "Exercise",
   };
 
-  const openLightbox = (idx: number) => {
-    setActiveImage(idx);
-    setLightboxOpen(true);
-  };
+  const handlePrevImage = () => setActiveImage((prev) => (prev === 0 ? exercise.images.length - 1 : prev - 1));
+  const handleNextImage = () => setActiveImage((prev) => (prev === exercise.images.length - 1 ? 0 : prev + 1));
 
   return (
     <>
@@ -176,21 +174,94 @@ const ExerciseDetail = () => {
           </motion.p>
         </motion.div>
 
-        {/* Instructions (70%) + Media gallery (30%) */}
-        <div className="grid grid-cols-1 lg:grid-cols-[6fr_4fr] xl:grid-cols-[7fr_3fr] gap-6 mb-8">
-          {/* Left 70%: Instructions + Ready to start */}
+        {/* Images (left) + Instructions & Action (right) on XL */}
+        <div className="grid grid-cols-1 xl:grid-cols-[3fr_2fr] gap-6 mb-8">
+          {/* Image Gallery */}
+          <motion.div
+            initial={{ opacity: 0, y: 30, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: 0.6, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <div className="bg-white/[0.6] border border-white/[0.88] rounded-2xl overflow-hidden backdrop-blur-[20px] shadow-[var(--shadow-sm)]">
+              {/* Main Image */}
+              <div
+                className="relative aspect-[16/10] overflow-hidden cursor-pointer group"
+                onClick={() => setLightboxOpen(true)}
+              >
+                <AnimatePresence mode="wait">
+                  <motion.img
+                    key={activeImage}
+                    initial={{ opacity: 0, scale: 1.06 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.96 }}
+                    transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+                    src={exercise.images[activeImage]}
+                    alt={`${exercise.title} - Image ${activeImage + 1}`}
+                    className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-500"
+                  />
+                </AnimatePresence>
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300" />
+                <button
+                  onClick={(e) => { e.stopPropagation(); handlePrevImage(); }}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center text-foreground hover:bg-white transition-all shadow-lg opacity-0 group-hover:opacity-100"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleNextImage(); }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center text-foreground hover:bg-white transition-all shadow-lg opacity-0 group-hover:opacity-100"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+                {/* Dots */}
+                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5">
+                  {exercise.images.map((_, i) => (
+                    <button
+                      key={i}
+                      onClick={(e) => { e.stopPropagation(); setActiveImage(i); }}
+                      className={`h-1.5 rounded-full transition-all duration-300 ${i === activeImage ? "bg-white w-6" : "bg-white/50 w-1.5 hover:bg-white/70"}`}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* Thumbnails (horizontal, small squares) */}
+              <div className="p-3 flex items-center gap-2">
+                {exercise.images.map((img, i) => (
+                  <motion.button
+                    key={i}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, delay: 0.5 + i * 0.08, ease: "easeOut" }}
+                    whileHover={{ scale: 1.12 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setActiveImage(i)}
+                    className={`w-12 h-12 shrink-0 rounded-lg overflow-hidden border-2 transition-all duration-200 ${
+                      i === activeImage
+                        ? "border-primary shadow-[0_0_0_2px_hsl(342,80%,53%,0.2)] scale-105"
+                        : "border-transparent opacity-50 hover:opacity-90"
+                    }`}
+                  >
+                    <img src={img} alt="" className="w-full h-full object-cover" />
+                  </motion.button>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Right side: Instructions + Ready to start */}
           <div className="space-y-5">
             {/* Instructions */}
             <motion.div
               initial={{ opacity: 0, y: 30, scale: 0.97 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              transition={{ duration: 0.6, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
+              transition={{ duration: 0.6, delay: 0.35, ease: [0.22, 1, 0.36, 1] }}
               className="bg-white/[0.6] border border-white/[0.88] rounded-2xl p-7 backdrop-blur-[20px] shadow-[var(--shadow-sm)]"
             >
               <motion.h2
                 initial={{ opacity: 0, x: -15 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.4, delay: 0.4 }}
+                transition={{ duration: 0.4, delay: 0.45 }}
                 className="text-lg font-bold text-foreground mb-6"
               >
                 Instructions
@@ -205,7 +276,7 @@ const ExerciseDetail = () => {
                       type: "spring",
                       stiffness: 300,
                       damping: 24,
-                      delay: 0.45 + i * 0.08,
+                      delay: 0.5 + i * 0.08,
                     }}
                     whileHover={{ x: 6 }}
                     className="flex gap-4 group cursor-default"
@@ -213,7 +284,7 @@ const ExerciseDetail = () => {
                     <motion.div
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
-                      transition={{ duration: 0.4, delay: 0.5 + i * 0.08 }}
+                      transition={{ duration: 0.4, delay: 0.55 + i * 0.08 }}
                       className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-primary-light flex items-center justify-center text-white text-xs font-bold shrink-0 shadow-sm group-hover:scale-110 group-hover:shadow-md transition-all duration-200"
                     >
                       {String(i + 1).padStart(2, "0")}
@@ -228,13 +299,13 @@ const ExerciseDetail = () => {
             <motion.div
               initial={{ opacity: 0, y: 30, scale: 0.97 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              transition={{ duration: 0.6, delay: 0.5, ease: [0.22, 1, 0.36, 1] }}
+              transition={{ duration: 0.6, delay: 0.55, ease: [0.22, 1, 0.36, 1] }}
             >
               <div className="bg-white/[0.6] border border-white/[0.88] rounded-2xl p-5 backdrop-blur-[20px] shadow-[var(--shadow-sm)]">
                 <motion.h3
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.4, delay: 0.6 }}
+                  transition={{ duration: 0.4, delay: 0.65 }}
                   className="text-base font-bold text-foreground mb-2"
                 >
                   Ready to start?
@@ -242,7 +313,7 @@ const ExerciseDetail = () => {
                 <motion.p
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  transition={{ duration: 0.4, delay: 0.65 }}
+                  transition={{ duration: 0.4, delay: 0.7 }}
                   className="text-[13px] text-muted-foreground mb-5 leading-relaxed"
                 >
                   Send a request to your tutor for approval. Once approved, you can begin working on this exercise.
@@ -251,7 +322,7 @@ const ExerciseDetail = () => {
                 <motion.button
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.4, delay: 0.7 }}
+                  transition={{ duration: 0.4, delay: 0.75 }}
                   whileHover={!requestSent ? { scale: 1.02, y: -2 } : {}}
                   whileTap={!requestSent ? { scale: 0.98 } : {}}
                   onClick={() => setRequestSent(true)}
@@ -303,51 +374,6 @@ const ExerciseDetail = () => {
               </div>
             </motion.div>
           </div>
-
-          {/* Right 30%: Media gallery (2x2 square grid) */}
-          {exercise.images.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: 30, scale: 0.97 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              transition={{ duration: 0.6, delay: 0.35, ease: [0.22, 1, 0.36, 1] }}
-              className="grid grid-cols-2 gap-2.5 self-start"
-            >
-              {exercise.images.slice(0, 4).map((src, i) => {
-                const isLast = i === 3 && exercise.images.length > 4;
-                return (
-                  <motion.div
-                    key={i}
-                    whileHover={{ scale: 0.985 }}
-                    transition={{ type: "spring", stiffness: 300, damping: 22 }}
-                    onClick={() => openLightbox(i)}
-                    className="relative overflow-hidden rounded-xl cursor-pointer bg-white/[0.4] border border-white/[0.7]"
-                    style={{ aspectRatio: "1 / 1" }}
-                  >
-                    <img
-                      src={src}
-                      alt={`${exercise.title} - Image ${i + 1}`}
-                      loading="lazy"
-                      className="absolute inset-0 w-full h-full object-cover"
-                      onError={(e) => {
-                        (e.currentTarget as HTMLImageElement).style.display = "none";
-                      }}
-                    />
-                    {isLast && (
-                      <div
-                        className="absolute inset-0 flex items-center justify-center text-white font-bold text-2xl"
-                        style={{
-                          background: "rgba(0,0,0,0.55)",
-                          backdropFilter: "blur(2px)",
-                        }}
-                      >
-                        +{exercise.images.length - 4}
-                      </div>
-                    )}
-                  </motion.div>
-                );
-              })}
-            </motion.div>
-          )}
         </div>
       </div>
     </>
