@@ -1,10 +1,11 @@
 export interface Guardian {
-  type: string;
+  traineeguardiandetailId: string;
+  guardianType: string;
   relation: string;
   firstName: string;
   lastName: string;
-  mobile1: string;
-  mobile2: string;
+  mobileNumber: string;
+  mobileNumber2: string;
 }
 
 export interface Education {
@@ -21,6 +22,8 @@ export interface Education {
 
 export interface ProfileFormData {
   // Personal Details
+  traineeId: string;
+  prefix: string;
   profilePhoto: File | null;
   firstName: string;
   middleName: string;
@@ -35,8 +38,8 @@ export interface ProfileFormData {
   confirmPassword: string;
 
   // Location Details
-  state: string;
-  city: string;
+  stateId: string;
+  cityId: string;
   address: string;
 
   // Guardian Details

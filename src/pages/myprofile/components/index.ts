@@ -1,5 +1,7 @@
 export { default as PersonalDetails } from "./PersonalDetails";
+export type { PersonalDetailsHandle } from "./PersonalDetails";
 export { default as LocationDetails } from "./LocationDetails";
+export type { LocationDetailsHandle } from "./LocationDetails";
 export { default as GuardianDetails } from "./GuardianDetails";
 export { default as EducationDetails } from "./EducationDetails";
 export { default as CourseDetails } from "./CourseDetails";

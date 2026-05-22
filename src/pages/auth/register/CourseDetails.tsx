@@ -66,7 +66,7 @@ const CourseDetails = forwardRef<StepHandle, CourseDetailsProps>(
         const opt: Option[] = (response.data.data?.list || []).map(
           (val: any) => ({
             value: String(val.coursedurationId),
-            label: `${val.courseName} (${val.duration} days)`,
+            label: val.courseName,
           }),
         );
         setCourseList(opt);

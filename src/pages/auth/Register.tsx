@@ -7,9 +7,31 @@ import AnimatedBackground from "@/components/AnimatedBackground";
 import InteractiveBackground from "@/components/InteractiveBackground";
 import { ChevronRight, ChevronLeft } from "lucide-react";
 import { decryptUrlData, encryptUrlData, toAbsoluteUrl, toasterrormsg } from "@/utils/reusable";
+import { apiHeader, postData } from "@/utils/ApiHelper";
 import { PersonalDetails, LocationDetails, GuardianDetails, EducationDetails, CourseDetails, Documents } from "./register";
 import type { StepHandle } from "./register";
 import type { RegisterFormData } from "./register";
+
+const TOTAL_STEPS = 6;
+
+const clamp = (n: number, min: number, max: number) => Math.min(Math.max(n, min), max);
+
+const completedStepFromApi = (cs: any): number => {
+  const order = [
+    cs?.basicDetail,
+    cs?.location,
+    cs?.guardianDetail,
+    cs?.educationDetail,
+    cs?.courseDetail,
+    cs?.documents,
+  ];
+  let n = 0;
+  for (const v of order) {
+    if (v) n++;
+    else break;
+  }
+  return n;
+};
 
 const steps = [
   { num: 1, title: "Personal Details", desc: "Name, gender & contact" },
@@ -33,24 +55,26 @@ const Register = () => {
       return {};
     }
   })();
-  const initialStep = Math.min(Math.max(parseInt(String(initialPayload.step || "1"), 10) || 1, 1), 6);
   const initialTraineeId = String(initialPayload.traineeId || "");
+  const initialCompletedStep = clamp(parseInt(String(initialPayload.completedStep || "0"), 10) || 0, 0, TOTAL_STEPS);
+  const initialStep = clamp(parseInt(String(initialPayload.step || "1"), 10) || 1, 1, TOTAL_STEPS);
 
   const [step, setStepState] = useState(initialStep);
-  const [completedStep, setCompletedStep] = useState(initialTraineeId ? steps.length : 0);
+  const [completedStep, setCompletedStep] = useState(6||initialCompletedStep);
   const [loading, setLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 
-  const writeUrl = (n: number, traineeId?: string) => {
+  const writeUrl = (nextStep: number, nextCompleted: number, traineeId?: string) => {
     const id = traineeId ?? methods.getValues("traineeId");
-    const payload: Record<string, any> = { step: n };
+    const payload: Record<string, any> = { step: nextStep, completedStep: nextCompleted };
     if (id) payload.traineeId = id;
     setSearchParams({ data: encryptUrlData(payload) || "" }, { replace: true });
   };
 
   const goToStep = (n: number) => {
-    setStepState(n);
-    writeUrl(n);
+    const next = clamp(n, 1, TOTAL_STEPS);
+    setStepState(next);
+    writeUrl(next, completedStep);
   };
 
   const methods = useForm<RegisterFormData>({
@@ -79,14 +103,34 @@ const Register = () => {
   const documentsRef = useRef<StepHandle | null>(null);
 
   useEffect(() => {
-    if (initialTraineeId) methods.setValue("traineeId", initialTraineeId);
+    if (!initialTraineeId) return;
+    methods.setValue("traineeId", initialTraineeId);
+
+    (async () => {
+      const response: any = await postData(
+        "trainee/personaldetail/get",
+        { traineeId: initialTraineeId },
+        apiHeader(false, 0)
+      );
+      if (String(response?.status) === "200" && String(response.data?.status) === "200") {
+        const data = response.data.data || {};
+        const done = completedStepFromApi(data.completedStep);
+        const nextCompleted = Math.max(initialCompletedStep, done);
+        const cap = Math.min(nextCompleted + 1, TOTAL_STEPS);
+        const desired = clamp(initialStep, 1, cap);
+        setCompletedStep(nextCompleted);
+        setStepState(desired);
+        writeUrl(desired, nextCompleted, initialTraineeId);
+      }
+    })();
   }, []);
 
   const handleSaved = (savedTraineeId?: string) => {
-    const hasTraineeId = !!(savedTraineeId || methods.getValues("traineeId"));
-    setCompletedStep((prev) => Math.max(prev, hasTraineeId ? steps.length : step));
-    setStepState(step + 1);
-    writeUrl(step + 1, savedTraineeId);
+    const nextCompleted = Math.max(completedStep, step);
+    const nextStep = Math.min(step + 1, TOTAL_STEPS);
+    setCompletedStep(nextCompleted);
+    setStepState(nextStep);
+    writeUrl(nextStep, nextCompleted, savedTraineeId);
   };
 
   const handleNext = async () => {
@@ -245,6 +289,7 @@ const Register = () => {
                     <Documents
                       ref={documentsRef}
                       onSaved={() => {
+                        setCompletedStep(TOTAL_STEPS);
                         setShowSuccess(true);
                         setTimeout(() => navigate("/login"), 2800);
                       }}

@@ -51,7 +51,7 @@ const LocationDetails = forwardRef<StepHandle, LocationDetailsProps>(
         var data = response.data.data;
         var opt: any = [];
         data.list.map((val: any) => {
-          opt.push({ value: val.stateId, label: val.name });
+          opt.push({ value: String(val.stateId), label: val.name });
         });
         setStateList(opt);
       } else {
@@ -84,7 +84,7 @@ const LocationDetails = forwardRef<StepHandle, LocationDetailsProps>(
         var data = response.data.data;
         var opt: any = [];
         data.list.map((val: any) => {
-          opt.push({ value: val.cityId, label: val.name });
+          opt.push({ value: String(val.cityId), label: val.name });
         });
         setCityList(opt);
       } else {

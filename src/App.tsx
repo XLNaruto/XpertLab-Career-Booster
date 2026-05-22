@@ -15,38 +15,47 @@ import Exam from "./pages/exam/Exam";
 import MyProfile from "./pages/myprofile/MyProfile";
 import NotFound from "./pages/error/NotFound";
 import MainLayout from "./components/layout/MainLayout";
-
+import { PrivateRoute, PublicRoute } from "./components/auth/RouteGuards";
 
 const { BASE_URL } = import.meta.env;
 const queryClient = new QueryClient();
 
+// console.log = console.warn = console.error = () => {};
+
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter
-        basename={BASE_URL}>
-        <Routes>
-          <Route path="/" element={<Welcome />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route element={<MainLayout />}>
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/exercises" element={<Navigate to="/exercises/technology" replace />} />
-            <Route path="/exercises/technology" element={<ExerciseList />} />
-            <Route path="/exercises/list/:techId" element={<SubExerciseList />} />
-            <Route path="/exercises/details/:exerciseId" element={<ExerciseDetail />} />
-            <Route path="/feedback" element={<Feedback />} />
-            <Route path="/exam" element={<Exam />} />
-            <Route path="/profile" element={<MyProfile />} />
+
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter basename={BASE_URL}>
+          <Routes>
+            <Route path="/" element={<Welcome />} />
+            <Route element={<PublicRoute />}>
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+            </Route>
+          <Route element={<PrivateRoute />}>
+            <Route element={<MainLayout />}>
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/exercises" element={<Navigate to="/exercises/technology" replace />} />
+              <Route path="/exercises/technology" element={<ExerciseList />} />
+              <Route path="/exercises/list/:techId" element={<SubExerciseList />} />
+              <Route path="/exercises/details/:exerciseId" element={<ExerciseDetail />} />
+              <Route path="/feedback" element={<Feedback />} />
+              <Route path="/exam" element={<Exam />} />
+              <Route path="/profile" element={<MyProfile />} />
+            </Route>
           </Route>
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+)
+
+
+
 
 export default App;

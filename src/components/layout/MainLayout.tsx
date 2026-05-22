@@ -1,10 +1,20 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { LogOut } from "lucide-react";
 import { motion, useScroll, useTransform } from "motion/react";
 import AnimatedBackground from "@/components/AnimatedBackground";
 import { toAbsoluteUrl } from "@/utils/reusable";
 import { clearCookies } from "@/utils/CookieComponent";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const navItems = [
   { label: "Dashboard", path: "/dashboard" },
@@ -19,8 +29,11 @@ const MainLayout = () => {
   const { scrollY } = useScroll();
   const headerShadow = useTransform(scrollY, [0, 50], [0, 1]);
 
+  const [logoutOpen, setLogoutOpen] = useState(false);
+
   const handleLogout = () => {
     clearCookies();
+    setLogoutOpen(false);
     navigate("/login");
   };
 
@@ -111,7 +124,7 @@ const MainLayout = () => {
               </motion.div>
             </Link>
             <motion.div
-              onClick={handleLogout}
+              onClick={() => setLogoutOpen(true)}
               whileHover={{ scale: 1.1, rotate: -10 }}
               whileTap={{ scale: 0.9 }}
               className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/[0.5] transition-all cursor-pointer"
@@ -124,6 +137,26 @@ const MainLayout = () => {
         {/* PAGE CONTENT */}
         <Outlet />
       </div>
+
+      <AlertDialog open={logoutOpen} onOpenChange={setLogoutOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Log out of your account?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You'll need to sign in again to access your dashboard, exercises and progress.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleLogout}
+              className="bg-gradient-to-br from-primary to-primary-light text-primary-foreground hover:opacity-90"
+            >
+              Log out
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };

@@ -5,7 +5,8 @@ import { motion, useMotionValue, useSpring, useTransform } from "motion/react";
 import AnimatedBackground from "@/components/AnimatedBackground";
 import InteractiveBackground from "@/components/InteractiveBackground";
 import { Eye, EyeOff, User, Lock } from "lucide-react";
-import { toAbsoluteUrl } from "@/utils/reusable";
+import { setEncodedCookie, toasterrormsg, toastsuccessmsg, toAbsoluteUrl } from "@/utils/reusable";
+import { apiHeader, postData } from "@/utils/ApiHelper";
 
 interface LoginFormData {
   username: string;
@@ -14,6 +15,7 @@ interface LoginFormData {
 
 const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   // Card 3D tilt
@@ -30,9 +32,33 @@ const Login = () => {
     formState: { errors },
   } = useForm<LoginFormData>();
 
-  const onSubmit = (data: LoginFormData) => {
-    console.log(data);
-    navigate("/dashboard");
+  const onSubmit = async (data: LoginFormData) => {
+    try {
+      setLoading(true);
+      const param = {
+        username: data.username,
+        password: data.password,
+      };
+      const response: any = await postData("trainee/auth/login", param, apiHeader(false,2));
+
+      if (String(response?.status) === "200" && String(response.data?.status) === "200") {
+        const resData = response.data.data || {};
+        if (resData.traineeId) {
+          if (resData.token) setEncodedCookie("token", resData.token);
+          setEncodedCookie("traineeId", resData.traineeId);
+          navigate("/dashboard");
+          toastsuccessmsg(response.data.message || "Login successful");
+        } else {
+          toasterrormsg(response?.data?.message || "Trainee ID not found. Unable to login.");
+        }
+      } else {
+        toasterrormsg(response?.data?.message || "Invalid credentials");
+      }
+    } catch (error: any) {
+      toasterrormsg(error?.message || "Something went wrong");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -232,9 +258,10 @@ const Login = () => {
 
                 <button
                   type="submit"
-                  className="w-full py-[14.5px] bg-gradient-to-br from-primary to-primary-light text-primary-foreground rounded-[11px] text-[15px] font-bold shadow-[var(--shadow-primary)] hover:shadow-[0_12px_36px_hsl(342_80%_53%/0.5)] hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300"
+                  disabled={loading}
+                  className="w-full py-[14.5px] bg-gradient-to-br from-primary to-primary-light text-primary-foreground rounded-[11px] text-[15px] font-bold shadow-[var(--shadow-primary)] hover:shadow-[0_12px_36px_hsl(342_80%_53%/0.5)] hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300 disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:translate-y-0"
                 >
-                  Sign In &nbsp;→
+                  {loading ? "Signing In..." : <>Sign In &nbsp;→</>}
                 </button>
               </form>
 
