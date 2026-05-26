@@ -60,7 +60,7 @@ const Register = () => {
   const initialStep = clamp(parseInt(String(initialPayload.step || "1"), 10) || 1, 1, TOTAL_STEPS);
 
   const [step, setStepState] = useState(initialStep);
-  const [completedStep, setCompletedStep] = useState(6||initialCompletedStep);
+  const [completedStep, setCompletedStep] = useState(initialCompletedStep);
   const [loading, setLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
 

@@ -4,242 +4,682 @@ import DatePicker from "react-date-picker";
 import { FileUploader } from "react-drag-drop-files";
 import "react-date-picker/dist/DatePicker.css";
 import "react-calendar/dist/Calendar.css";
-import { GraduationCap, BookOpen, Upload, CheckCircle, X } from "lucide-react";
-import { selectStyles, inputClass, labelClass, errorClass, iconClass } from "./styles";
+import {
+  GraduationCap,
+  BookOpen,
+  Upload,
+  CheckCircle,
+  X,
+  Trash2,
+  Download,
+} from "lucide-react";
+import {
+  selectStyles,
+  inputClass,
+  labelClass,
+  errorClass,
+  iconClass,
+} from "./styles";
 import type { ProfileFormData } from "./types";
+import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
+import { educationDetailsSchema } from "./schemas";
+import { toasterrormsg, toastsuccessmsg } from "@/utils/reusable";
+import { apiHeader, postData } from "@/utils/ApiHelper";
 
-const fileTypes = ["JPG", "PNG", "PDF"];
+export type EducationDetailsHandle = {
+  save: () => Promise<boolean>;
+};
 
-const educationTypeOptions = [
-  { value: "School", label: "School" },
-  { value: "College", label: "College" },
-  { value: "University", label: "University" },
+type EducationDetailsProps = {
+  onSaved?: () => void;
+};
+
+type Option = { value: string; label: string };
+
+const educationTypeList: Option[] = [
+  { value: "SSC", label: "SSC" },
+  { value: "HSC", label: "HSC" },
+  { value: "DIPLOMA", label: "Diploma" },
+  { value: "BACHELOR", label: "Bachelor" },
+  { value: "MASTER", label: "Master" },
+  { value: "PHD", label: "PhD" },
 ];
 
-const boardOptions = [
-  { value: "CBSE", label: "CBSE" },
-  { value: "GSEB", label: "GSEB" },
-  { value: "ICSE", label: "ICSE" },
-];
+const FILE_TYPES = ["JPG", "JPEG", "PNG", "GIF", "PDF"];
 
-const instituteOptions = [
-  { value: "Institute A", label: "Institute A" },
-  { value: "Institute B", label: "Institute B" },
-];
+// "YYYY-MM" (form state) <-> "M-YYYY" (API format)
+const toApiYearMonth = (v: string) => {
+  if (!v) return "";
+  const [y, m] = v.split("-");
+  if (!y || !m) return v;
+  return `${parseInt(m, 10)}-${y}`;
+};
 
-const EducationDetails = () => {
-  const { register, control, formState: { errors } } = useFormContext<ProfileFormData>();
-  const { fields, append, remove } = useFieldArray({ control, name: "educations" });
+const fromApiYearMonth = (v: string) => {
+  if (!v) return "";
+  if (/^\d{4}-\d{2}$/.test(v)) return v;
+  const [m, y] = v.split("-");
+  if (!y || !m) return "";
+  return `${y}-${String(parseInt(m, 10)).padStart(2, "0")}`;
+};
+
+const stringToDate = (v: string): Date | null => {
+  if (!v) return null;
+  const [y, m] = v.split("-");
+  if (!y || !m) return null;
+  return new Date(parseInt(y, 10), parseInt(m, 10) - 1, 1);
+};
+
+const dateToString = (d: Date | null): string => {
+  if (!d) return "";
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+};
+
+const EducationDetails = forwardRef<
+  EducationDetailsHandle,
+  EducationDetailsProps
+>(({ onSaved }, ref) => {
+  const methods = useFormContext<ProfileFormData>();
+  const {
+    control,
+    formState: { errors },
+    watch,
+  } = methods;
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: "educations",
+  });
+
+  const submittedRef = useRef(false);
+  const fetchedForRef = useRef<string>("");
+
+  const [boardList, setBoardList] = useState<Option[]>([]);
+  const [instituteList, setInstituteList] = useState<Option[]>([]);
+
+  const traineeId = methods.watch("traineeId");
+  const educationsWatch = watch("educations");
+
+  const boardListApiCall = async () => {
+    var response: any = await postData(
+      "master/board/list",
+      {},
+      apiHeader(false, 0),
+    );
+    if (
+      String(response?.status) == "200" &&
+      String(response.data?.status) == "200"
+    ) {
+      var data = response.data.data;
+      var opt: any = [];
+      data.list.map((val: any) => {
+        opt.push({ value: String(val.boardId), label: val.name });
+      });
+      setBoardList(opt);
+    } else {
+      toasterrormsg(response.data.message);
+    }
+  };
+
+  const instituteListApiCall = async () => {
+    var response: any = await postData(
+      "master/institute/list",
+      {},
+      apiHeader(false, 0),
+    );
+    if (
+      String(response?.status) == "200" &&
+      String(response.data?.status) == "200"
+    ) {
+      var data = response.data.data;
+      var opt: any = [];
+      data.list.map((val: any) => {
+        opt.push({ value: String(val.instituteId), label: val.name });
+      });
+      setInstituteList(opt);
+    } else {
+      toasterrormsg(response.data.message);
+    }
+  };
+
+  useEffect(() => {
+    boardListApiCall();
+    instituteListApiCall();
+  }, []);
+
+  const educationListApiCall = async (id: string) => {
+    const param = { traineeId: id };
+    var response: any = await postData(
+      "trainee/educationdetail/list",
+      param,
+      apiHeader(false, 0),
+    );
+
+    if (
+      String(response?.status) == "200" &&
+      String(response.data?.status) == "200"
+    ) {
+      var data = response.data?.data;
+      const list: any[] = data ?? [];
+      if (list.length > 0) {
+        const filterData = list.map((item: any) => ({
+          traineeeducationdetailId: String(item.traineeeducationdetailId ?? ""),
+          educationType: item.educationType ?? "",
+          passingYear: fromApiYearMonth(item.passingYear ?? ""),
+          education: item.education ?? "",
+          boardId: item.boardId ? String(item.boardId) : "",
+          instituteId: item.instituteId ? String(item.instituteId) : "",
+          percentage: item.percentage != null ? String(item.percentage) : "",
+          isCompleted: String(item.isCompleted ?? "0"),
+          document: item.document ?? "",
+          url: item.url ?? "",
+        }));
+        methods.setValue("educations", filterData);
+      }
+    } else {
+      toasterrormsg(response.data.message);
+    }
+  };
+
+  useEffect(() => {
+    if (traineeId && fetchedForRef.current !== traineeId) {
+      fetchedForRef.current = traineeId;
+      educationListApiCall(traineeId);
+    }
+  }, [traineeId]);
+
+  const handleDocumentChange = async (file: File, index: number) => {
+    if (!file) return;
+    const validTypes = [
+      "image/jpeg",
+      "image/png",
+      "image/gif",
+      "application/pdf",
+    ];
+    if (!validTypes.includes(file.type)) {
+      toasterrormsg("Invalid file type. Please upload only image or pdf.");
+      return;
+    }
+    if (file.size > 1 * 1024 * 1024) {
+      toasterrormsg("File size should not exceed 1MB.");
+      return;
+    }
+
+    const param = new FormData();
+    param.append("document", file);
+    var response: any = await postData(
+      "trainee/educationdetail/uploadDocument",
+      param,
+      apiHeader(true, 0),
+    );
+
+    if (
+      String(response?.status) == "200" &&
+      String(response.data?.status) == "200"
+    ) {
+      var data = response.data.data;
+      methods.setValue(`educations.${index}.document`, data?.document ?? "");
+      methods.setValue(
+        `educations.${index}.url`,
+        data?.url ?? data?.document ?? "",
+      );
+    } else {
+      toasterrormsg(response.data.message);
+    }
+  };
+
+  const handleRemoveField = (index: number) => {
+    if (index === 0) return;
+    remove(index);
+  };
+
+  const resetRowOnTypeChange = (index: number) => {
+    methods.setValue(`educations.${index}.passingYear`, "");
+    methods.setValue(`educations.${index}.education`, "");
+    methods.setValue(`educations.${index}.boardId`, "");
+    methods.setValue(`educations.${index}.instituteId`, "");
+    methods.setValue(`educations.${index}.percentage`, "");
+    methods.setValue(`educations.${index}.isCompleted`, "0");
+    methods.setValue(`educations.${index}.document`, "");
+    methods.setValue(`educations.${index}.url`, "");
+  };
+
+  const resetRowOnPursuingChange = (index: number) => {
+    methods.setValue(`educations.${index}.passingYear`, "");
+    methods.setValue(`educations.${index}.percentage`, "");
+    methods.setValue(`educations.${index}.document`, "");
+    methods.setValue(`educations.${index}.url`, "");
+  };
+
+  useEffect(() => {
+    const sub = methods.watch((_v, { name }) => {
+      if (!name || !submittedRef.current) return;
+      if (!name.startsWith("educations")) return;
+      const result = educationDetailsSchema.safeParse({
+        educations: methods.getValues("educations"),
+      });
+      const issue = result.success
+        ? undefined
+        : result.error.issues.find((i) => i.path.join(".") === name);
+      if (issue) {
+        methods.setError(name as any, {
+          type: "manual",
+          message: issue.message,
+        });
+      } else {
+        methods.clearErrors(name as any);
+      }
+    });
+    return () => sub.unsubscribe();
+  }, [methods]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      save: async () => {
+        submittedRef.current = true;
+        const educations = methods.getValues("educations");
+        const result = educationDetailsSchema.safeParse({ educations });
+        if (!result.success) {
+          methods.clearErrors();
+          result.error.issues.forEach((issue) => {
+            const path = issue.path.join(".");
+            methods.setError(path as any, {
+              type: "manual",
+              message: issue.message,
+            });
+          });
+          return false;
+        }
+
+        const payload = {
+          education: result.data.educations.map((e) => ({
+            traineeId: methods.getValues("traineeId"),
+            traineeeducationdetailId: e.traineeeducationdetailId || undefined,
+            educationType: e.educationType,
+            passingYear: toApiYearMonth(e.passingYear),
+            education: e.education,
+            boardId: e.boardId,
+            instituteId: e.instituteId,
+            percentage: e.isCompleted === "1" ? e.percentage : "0",
+            isCompleted: e.isCompleted,
+            document: e.document,
+          })),
+        };
+
+        var response: any = await postData(
+          "trainee/educationdetail/save",
+          payload,
+          apiHeader(false, 0),
+        );
+
+        if (
+          String(response?.status) == "200" &&
+          String(response.data?.status) == "200"
+        ) {
+          toastsuccessmsg(response.data.message);
+          onSaved?.();
+          return true;
+        }
+        toasterrormsg(response?.data?.message || "Something went wrong");
+        return false;
+      },
+    }),
+    [methods, onSaved],
+  );
 
   return (
     <div className="space-y-5">
-      {fields.map((field, idx) => (
-        <div key={field.id} className="bg-white/[0.4] border border-foreground/[0.06] rounded-2xl p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-foreground">Education {idx + 1}</h3>
-            {fields.length > 1 && (
-              <button type="button" onClick={() => remove(idx)} className="text-xs text-primary font-semibold hover:opacity-70">Remove</button>
-            )}
-          </div>
-          <div className="space-y-3">
-            <div className="grid grid-cols-3 gap-3">
-              <div>
-                <label className={labelClass}>Education Type <span className="text-primary">*</span></label>
-                <Controller
-                  name={`educations.${idx}.educationType`}
-                  control={control}
-                  rules={{ required: "Required" }}
-                  render={({ field }) => (
-                    <Select
-                      {...field}
-                      options={educationTypeOptions}
-                      placeholder="Select Education Type"
-                      styles={selectStyles}
-                      value={educationTypeOptions.find(o => o.value === field.value) || null}
-                      onChange={(opt: any) => field.onChange(opt?.value)}
-                    />
-                  )}
-                />
-                {errors.educations?.[idx]?.educationType && <p className={errorClass}>{errors.educations[idx].educationType?.message}</p>}
-              </div>
-              <div>
-                <label className={labelClass}>Education <span className="text-primary">*</span></label>
-                <div className="relative">
-                  <div className={iconClass}><GraduationCap className="w-4 h-4" /></div>
-                  <input {...register(`educations.${idx}.education`, { required: "Required" })} placeholder="Education" className={inputClass} />
-                </div>
-                {errors.educations?.[idx]?.education && <p className={errorClass}>{errors.educations[idx].education?.message}</p>}
-              </div>
-              <div>
-                <label className={labelClass}>Board / University <span className="text-primary">*</span></label>
-                <Controller
-                  name={`educations.${idx}.board`}
-                  control={control}
-                  rules={{ required: "Required" }}
-                  render={({ field }) => (
-                    <Select
-                      {...field}
-                      options={boardOptions}
-                      placeholder="Select"
-                      styles={selectStyles}
-                      value={boardOptions.find(o => o.value === field.value) || null}
-                      onChange={(opt: any) => field.onChange(opt?.value)}
-                    />
-                  )}
-                />
-                {errors.educations?.[idx]?.board && <p className={errorClass}>{errors.educations[idx].board?.message}</p>}
-              </div>
+      {fields.map((field, idx) => {
+        const row = educationsWatch?.[idx];
+        const isCompleted = row?.isCompleted === "1";
+        const isSscOrHsc =
+          row?.educationType === "SSC" || row?.educationType === "HSC";
+        const eduErrors = (errors.educations as any)?.[idx];
+        return (
+          <div
+            key={field.id}
+            className="bg-white/[0.4] border border-foreground/[0.06] rounded-2xl p-5"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold text-foreground">
+                Education {idx + 1}
+              </h3>
+              {idx > 0 && (
+                <button
+                  type="button"
+                  onClick={() => handleRemoveField(idx)}
+                  className="text-xs text-primary font-semibold hover:opacity-70 flex items-center gap-1"
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> Remove
+                </button>
+              )}
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
-              <div>
-                <label className={labelClass}>Institute <span className="text-primary">*</span></label>
-                <Controller
-                  name={`educations.${idx}.institute`}
-                  control={control}
-                  rules={{ required: "Required" }}
-                  render={({ field }) => (
-                    <Select
-                      {...field}
-                      options={instituteOptions}
-                      placeholder="Select Institute"
-                      styles={selectStyles}
-                      value={instituteOptions.find(o => o.value === field.value) || null}
-                      onChange={(opt: any) => field.onChange(opt?.value)}
-                    />
+            <div className="space-y-3">
+              <div className="grid lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                <div>
+                  <label className={labelClass}>
+                    Education Type <span className="text-primary">*</span>
+                  </label>
+                  <Controller
+                    name={`educations.${idx}.educationType`}
+                    control={control}
+                    render={({ field }) => (
+                      <Select
+                        {...field}
+                        options={educationTypeList}
+                        placeholder="Select Education Type"
+                        styles={selectStyles}
+                        value={
+                          educationTypeList.find(
+                            (o) => o.value === field.value,
+                          ) || null
+                        }
+                        onChange={(opt: any) => {
+                          field.onChange(opt?.value || "");
+                          resetRowOnTypeChange(idx);
+                        }}
+                      />
+                    )}
+                  />
+                  {eduErrors?.educationType && (
+                    <p className={errorClass}>
+                      {eduErrors.educationType.message as string}
+                    </p>
                   )}
-                />
-                {errors.educations?.[idx]?.institute && <p className={errorClass}>{errors.educations[idx].institute?.message}</p>}
-              </div>
-              <div>
-                <label className={labelClass}>Passing Year <span className="text-primary">*</span></label>
-                <Controller
-                  name={`educations.${idx}.passingYear`}
-                  control={control}
-                  rules={{ required: "Required" }}
-                  render={({ field }) => (
-                    <DatePicker
-                      value={field.value}
-                      onChange={(val) => field.onChange(val)}
-                      format="MM-yyyy"
-                      maxDetail="year"
-                      monthPlaceholder="mm"
-                      yearPlaceholder="yyyy"
-                      clearIcon={null}
-                      className="react-date-picker--custom"
-                    />
-                  )}
-                />
-                {errors.educations?.[idx]?.passingYear && <p className={errorClass}>{errors.educations[idx].passingYear?.message}</p>}
-              </div>
-              <div>
-                <label className={labelClass}>Academic Year <span className="text-primary">*</span></label>
-                <Controller
-                  name={`educations.${idx}.academicYear`}
-                  control={control}
-                  rules={{ required: "Required" }}
-                  render={({ field }) => (
-                    <DatePicker
-                      value={field.value}
-                      onChange={(val) => field.onChange(val)}
-                      format="MM-yyyy"
-                      maxDetail="year"
-                      monthPlaceholder="mm"
-                      yearPlaceholder="yyyy"
-                      clearIcon={null}
-                      className="react-date-picker--custom"
-                    />
-                  )}
-                />
-                {errors.educations?.[idx]?.academicYear && <p className={errorClass}>{errors.educations[idx].academicYear?.message}</p>}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-3 items-end">
-              <div>
-                <label className={labelClass}>Percentage (%) <span className="text-primary">*</span></label>
-                <div className="relative">
-                  <div className={iconClass}><BookOpen className="w-4 h-4" /></div>
-                  <input {...register(`educations.${idx}.percentage`, { required: "Required" })} placeholder="Percentage (%)" className={inputClass} />
                 </div>
-                {errors.educations?.[idx]?.percentage && <p className={errorClass}>{errors.educations[idx].percentage?.message}</p>}
-              </div>
-              <div>
-                <label className={labelClass}>Education Completed</label>
-                <Controller
-                  name={`educations.${idx}.educationCompleted`}
-                  control={control}
-                  render={({ field }) => (
-                    <label className="flex items-center gap-3 cursor-pointer">
-                      <div className="relative w-11 h-6 rounded-full transition-colors" style={{ backgroundColor: field.value ? 'hsl(342 80% 53%)' : 'hsl(var(--foreground) / 0.1)' }}>
-                        <input type="checkbox" className="peer sr-only" checked={field.value} onChange={field.onChange} />
-                        <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${field.value ? "translate-x-5" : ""}`} />
-                      </div>
-                      <span className="text-sm text-muted-foreground">{field.value ? "Yes" : "No"}</span>
+                {!isSscOrHsc && (
+                  <div>
+                    <label className={labelClass}>
+                      Education <span className="text-primary">*</span>
                     </label>
+                    <div className="relative">
+                      <div className={iconClass}>
+                        <BookOpen className="w-4 h-4" />
+                      </div>
+                      <Controller
+                        name={`educations.${idx}.education`}
+                        control={control}
+                        render={({ field }) => (
+                          <input
+                            {...field}
+                            placeholder="Education"
+                            className={inputClass}
+                          />
+                        )}
+                      />
+                    </div>
+                    {eduErrors?.education && (
+                      <p className={errorClass}>
+                        {eduErrors.education.message as string}
+                      </p>
+                    )}
+                  </div>
+                )}
+                <div>
+                  <label className={labelClass}>
+                    Board / University <span className="text-primary">*</span>
+                  </label>
+                  <Controller
+                    name={`educations.${idx}.boardId`}
+                    control={control}
+                    render={({ field }) => (
+                      <Select
+                        {...field}
+                        options={boardList}
+                        placeholder="Select Board / University"
+                        styles={selectStyles}
+                        value={
+                          boardList.find((o) => o.value === field.value) || null
+                        }
+                        onChange={(opt: any) =>
+                          field.onChange(opt?.value || "")
+                        }
+                      />
+                    )}
+                  />
+                  {eduErrors?.boardId && (
+                    <p className={errorClass}>
+                      {eduErrors.boardId.message as string}
+                    </p>
                   )}
-                />
+                </div>
+                <div>
+                  <label className={labelClass}>
+                    Institute <span className="text-primary">*</span>
+                  </label>
+                  <Controller
+                    name={`educations.${idx}.instituteId`}
+                    control={control}
+                    render={({ field }) => (
+                      <Select
+                        {...field}
+                        options={instituteList}
+                        placeholder="Select Institute"
+                        styles={selectStyles}
+                        value={
+                          instituteList.find((o) => o.value === field.value) ||
+                          null
+                        }
+                        onChange={(opt: any) =>
+                          field.onChange(opt?.value || "")
+                        }
+                      />
+                    )}
+                  />
+                  {eduErrors?.instituteId && (
+                    <p className={errorClass}>
+                      {eduErrors.instituteId.message as string}
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label className={labelClass}>
+                    {isCompleted ? "Passing Year" : "Academic Year"}{" "}
+                    <span className="text-primary">*</span>
+                  </label>
+                  <Controller
+                    name={`educations.${idx}.passingYear`}
+                    control={control}
+                    render={({ field }) => (
+                      <DatePicker
+                        value={stringToDate(field.value)}
+                        onChange={(val: any) =>
+                          field.onChange(dateToString(val))
+                        }
+                        format="MM-yyyy"
+                        maxDetail="year"
+                        monthPlaceholder="mm"
+                        yearPlaceholder="yyyy"
+                        clearIcon={null}
+                        maxDate={new Date()}
+                        className="react-date-picker--custom"
+                      />
+                    )}
+                  />
+                  {eduErrors?.passingYear && (
+                    <p className={errorClass}>
+                      {eduErrors.passingYear.message as string}
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label className={labelClass}>Education Completed</label>
+                  <Controller
+                    name={`educations.${idx}.isCompleted`}
+                    control={control}
+                    render={({ field }) => (
+                      <label className="flex items-center gap-3 cursor-pointer">
+                        <div
+                          className="relative w-11 h-6 rounded-full transition-colors"
+                          style={{
+                            backgroundColor:
+                              field.value === "1"
+                                ? "hsl(342 80% 53%)"
+                                : "hsl(var(--foreground) / 0.1)",
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            className="peer sr-only"
+                            checked={field.value === "1"}
+                            onChange={(e) => {
+                              field.onChange(e.target.checked ? "1" : "0");
+                              resetRowOnPursuingChange(idx);
+                            }}
+                          />
+                          <div
+                            className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${field.value === "1" ? "translate-x-5" : ""}`}
+                          />
+                        </div>
+                        <span className="text-sm text-muted-foreground">
+                          {field.value === "1" ? "Yes" : "No"}
+                        </span>
+                      </label>
+                    )}
+                  />
+                </div>
+                {isCompleted && (
+                  <div>
+                    <label className={labelClass}>
+                      Percentage (%) <span className="text-primary">*</span>
+                    </label>
+                    <div className="relative">
+                      <div className={iconClass}>
+                        <BookOpen className="w-4 h-4" />
+                      </div>
+                      <Controller
+                        name={`educations.${idx}.percentage`}
+                        control={control}
+                        render={({ field }) => (
+                          <input
+                            {...field}
+                            placeholder="Percentage (%)"
+                            className={inputClass}
+                          />
+                        )}
+                      />
+                    </div>
+                    {eduErrors?.percentage && (
+                      <p className={errorClass}>
+                        {eduErrors.percentage.message as string}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
-            </div>
 
-            <div>
-              <label className={labelClass}>Document <span className="text-primary">*</span></label>
-              <Controller
-                name={`educations.${idx}.educationDocument`}
-                control={control}
-                rules={{ required: "Document is required" }}
-                render={({ field }) => (
+              {isCompleted && (
+                <div>
+                  <label className={labelClass}>
+                    Document <span className="text-primary">*</span>
+                  </label>
                   <FileUploader
-                    handleChange={(file: File) => field.onChange(file)}
-                    name={`educationDocument-${idx}`}
-                    types={fileTypes}
+                    multiple={false}
+                    types={FILE_TYPES}
+                    handleChange={(file: File) =>
+                      handleDocumentChange(file, idx)
+                    }
                     dropMessageStyle={{ display: "none" }}
                     hoverTitle=" "
+                    classes="w-full"
                   >
-                    <div className={`border-2 border-dashed rounded-xl p-6 flex flex-col items-center gap-2 transition-all cursor-pointer ${
-                      field.value
-                        ? "border-green-400/40 bg-green-50/30"
-                        : "border-foreground/[0.1] hover:border-primary/30 hover:bg-primary/[0.02]"
-                    }`}>
-                      {field.value ? (
+                    <div
+                      className={`border-2 border-dashed rounded-xl p-6 flex flex-col items-center gap-2 transition-all cursor-pointer ${
+                        row?.document
+                          ? "border-green-400/40 bg-green-50/30"
+                          : "border-foreground/[0.1] hover:border-primary/30 hover:bg-primary/[0.02]"
+                      }`}
+                    >
+                      {row?.document ? (
                         <>
                           <CheckCircle className="w-6 h-6 text-green-500" />
                           <div className="text-[13px] font-semibold text-foreground/70 text-center truncate max-w-full px-2">
-                            {field.value.name}
+                            {row.document.split("/").pop() || row.document}
                           </div>
-                          <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); field.onChange(null); }}
-                            className="text-[11px] text-primary font-semibold flex items-center gap-1 hover:opacity-70 transition-opacity"
-                          >
-                            <X className="w-3 h-3" /> Remove
-                          </button>
+                          <div className="flex items-center gap-3">
+                            {row?.url && (
+                              <a
+                                href={row.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-[11px] text-primary font-semibold flex items-center gap-1 hover:opacity-70 transition-opacity"
+                              >
+                                <Download className="w-3 h-3" /> Download
+                              </a>
+                            )}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                methods.setValue(
+                                  `educations.${idx}.document`,
+                                  "",
+                                );
+                                methods.setValue(`educations.${idx}.url`, "");
+                              }}
+                              className="text-[11px] text-primary font-semibold flex items-center gap-1 hover:opacity-70 transition-opacity"
+                            >
+                              <X className="w-3 h-3" /> Remove
+                            </button>
+                          </div>
                         </>
                       ) : (
                         <>
                           <Upload className="w-6 h-6 text-foreground/20" />
-                          <div className="text-[13px] font-semibold text-foreground/50">Upload Document</div>
-                          <div className="text-[11px] text-muted-foreground">Drag & Drop or choose files</div>
+                          <div className="text-[13px] font-semibold text-foreground/50">
+                            Upload Document
+                          </div>
+                          <div className="text-[11px] text-muted-foreground">
+                            Drag &amp; Drop or choose files
+                          </div>
                         </>
                       )}
                     </div>
                   </FileUploader>
-                )}
-              />
-              {errors.educations?.[idx]?.educationDocument && <p className={errorClass}>{errors.educations[idx].educationDocument?.message}</p>}
+                  {eduErrors?.document && (
+                    <p className={errorClass}>
+                      {eduErrors.document.message as string}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
+
       <button
         type="button"
-        onClick={() => append({ educationType: "", education: "", board: "", institute: "", passingYear: null, academicYear: null, percentage: "", educationCompleted: true, educationDocument: null })}
+        onClick={() =>
+          append({
+            traineeeducationdetailId: "",
+            educationType: "",
+            education: "",
+            boardId: "",
+            instituteId: "",
+            passingYear: "",
+            percentage: "",
+            isCompleted: "0",
+            document: "",
+            url: "",
+          })
+        }
         className="text-sm font-semibold text-primary hover:opacity-70 transition-opacity"
       >
         + Add More
       </button>
     </div>
   );
-};
+});
+
+EducationDetails.displayName = "EducationDetails";
 
 export default EducationDetails;

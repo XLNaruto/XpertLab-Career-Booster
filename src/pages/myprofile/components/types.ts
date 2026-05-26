@@ -9,15 +9,16 @@ export interface Guardian {
 }
 
 export interface Education {
+  traineeeducationdetailId: string;
   educationType: string;
   education: string;
-  board: string;
-  institute: string;
-  passingYear: Date | null;
-  academicYear: Date | null;
+  boardId: string;
+  instituteId: string;
+  passingYear: string;
   percentage: string;
-  educationCompleted: boolean;
-  educationDocument: File | null;
+  isCompleted: string;
+  document: string;
+  url: string;
 }
 
 export interface ProfileFormData {
@@ -49,15 +50,26 @@ export interface ProfileFormData {
   educations: Education[];
 
   // Course Details
+  traineecourseId: string;
   course: string;
+  enrollmentType: string;
   traineeArea: string;
   batchDay: string;
   batchTime: string;
   joiningDate: Date | null;
-  device: string;
-  computer: string;
+  hasLaptop: number | null;
+  computerId: string;
 
   // Documents
   aadharNumber: string;
-  documents: (File | null)[];
+  documents: TraineeDocument[];
+}
+
+
+export interface TraineeDocument {
+  traineedocumentId: string;
+  name: string;
+  isCompulsory: number | boolean;
+  document: string;
+  url: string;
 }

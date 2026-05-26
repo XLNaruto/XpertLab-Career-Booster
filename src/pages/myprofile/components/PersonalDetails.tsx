@@ -81,6 +81,17 @@ const PersonalDetails = forwardRef<PersonalDetailsHandle, PersonalDetailsProps>(
     } = methods;
     const fileInputRef = useRef<HTMLInputElement>(null);
     const submittedRef = useRef(false);
+    const profilePhoto = methods.watch("profilePhoto") as File | null;
+    const [photoObjectUrl, setPhotoObjectUrl] = useState<string | null>(null);
+    useEffect(() => {
+      if (!profilePhoto) {
+        setPhotoObjectUrl(null);
+        return;
+      }
+      const url = URL.createObjectURL(profilePhoto);
+      setPhotoObjectUrl(url);
+      return () => URL.revokeObjectURL(url);
+    }, [profilePhoto]);
 
     useEffect(() => {
       const sub = methods.watch((_v, { name }) => {
@@ -177,9 +188,7 @@ const PersonalDetails = forwardRef<PersonalDetailsHandle, PersonalDetailsProps>(
             name="profilePhoto"
             control={control}
             render={({ field }) => {
-              const preview = field.value
-                ? URL.createObjectURL(field.value as File)
-                : existingPictureUrl || null;
+              const preview = photoObjectUrl || existingPictureUrl || null;
               return (
                 <div className="relative w-24 h-24 group">
                   <div

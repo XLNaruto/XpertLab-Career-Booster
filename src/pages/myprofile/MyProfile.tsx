@@ -5,18 +5,31 @@ import {
   User,
   Mail,
   Phone,
-  Calendar,
   MapPinned,
   UserCheck,
   School,
   Bookmark,
   FolderOpen,
 } from "lucide-react";
-import { PersonalDetails, LocationDetails, GuardianDetails, EducationDetails, CourseDetails, Documents } from "./components";
-import type { LocationDetailsHandle, PersonalDetailsHandle, ProfileFormData } from "./components";
+import {
+  PersonalDetails,
+  LocationDetails,
+  GuardianDetails,
+  EducationDetails,
+  CourseDetails,
+  Documents,
+} from "./components";
+import type {
+  LocationDetailsHandle,
+  PersonalDetailsHandle,
+  ProfileFormData,
+} from "./components";
 import { apiHeader, postData } from "@/utils/ApiHelper";
 import { getEncodedCookie, toasterrormsg } from "@/utils/reusable";
 import { GuardianDetailsHandle } from "./components/GuardianDetails";
+import { EducationDetailsHandle } from "./components/EducationDetails";
+import { CourseDetailsHandle } from "./components/CourseDetails";
+import { DocumentDetailsHandle } from "./components/Documents";
 
 const tabs = [
   { label: "Personal Details", icon: User, component: PersonalDetails },
@@ -40,22 +53,65 @@ const MyProfile = () => {
   const personalRef = useRef<PersonalDetailsHandle | null>(null);
   const locationRef = useRef<LocationDetailsHandle | null>(null);
   const guardianRef = useRef<GuardianDetailsHandle | null>(null);
+  const educationRef = useRef<EducationDetailsHandle | null>(null);
+  const courseRef = useRef<CourseDetailsHandle | null>(null);
+  const documentsRef = useRef<DocumentDetailsHandle | null>(null);
 
   const methods = useForm<ProfileFormData>({
     defaultValues: {
       traineeId: "",
       prefix: "",
       profilePhoto: null,
-      firstName: "", middleName: "", lastName: "",
-      gender: "", birthDate: null, email: "",
-      mobile1: "", mobile2: "",
-      userName: "", password: "", confirmPassword: "",
-      stateId: "", cityId: "", address: "",
-      guardians: [{ type: "", relation: "", firstName: "", lastName: "", mobile1: "", mobile2: "" }],
-      educations: [{ educationType: "", education: "", board: "", institute: "", passingYear: null, academicYear: null, percentage: "", educationCompleted: true, educationDocument: null }],
-      course: "", traineeArea: "", batchDay: "", batchTime: "",
-      joiningDate: null, device: "", computer: "",
-      aadharNumber: "", documents: [null, null, null],
+      firstName: "",
+      middleName: "",
+      lastName: "",
+      gender: "",
+      birthDate: null,
+      email: "",
+      mobile1: "",
+      mobile2: "",
+      userName: "",
+      password: "",
+      confirmPassword: "",
+      stateId: "",
+      cityId: "",
+      address: "",
+      guardians: [
+        {
+          traineeguardiandetailId: "",
+          guardianType: "",
+          relation: "",
+          firstName: "",
+          lastName: "",
+          mobileNumber: "",
+          mobileNumber2: "",
+        },
+      ],
+      educations: [
+        {
+          traineeeducationdetailId: "",
+          educationType: "",
+          education: "",
+          boardId: "",
+          instituteId: "",
+          passingYear: "",
+          percentage: "",
+          isCompleted: "0",
+          document: "",
+          url: "",
+        },
+      ],
+      traineecourseId: "",
+      course: "",
+      enrollmentType: "",
+      traineeArea: "",
+      batchDay: "",
+      batchTime: "",
+      joiningDate: null,
+      hasLaptop: null,
+      computerId: "",
+      aadharNumber: "",
+      documents: [],
     },
   });
 
@@ -66,10 +122,13 @@ const MyProfile = () => {
     const response: any = await postData(
       "trainee/personaldetail/get",
       { traineeId },
-      apiHeader(false, 0)
+      apiHeader(false, 0),
     );
 
-    if (String(response?.status) === "200" && String(response.data?.status) === "200") {
+    if (
+      String(response?.status) === "200" &&
+      String(response.data?.status) === "200"
+    ) {
       const data = response.data.data || {};
       methods.reset({
         ...methods.getValues(),
@@ -93,7 +152,12 @@ const MyProfile = () => {
         aadharNumber: data.aadharcardNumber || "",
       });
 
-      const fullName = [data.prefix, data.firstName, data.middleName, data.lastName]
+      const fullName = [
+        data.prefix,
+        data.firstName,
+        data.middleName,
+        data.lastName,
+      ]
         .filter(Boolean)
         .join(" ");
       setBannerInfo({
@@ -122,13 +186,20 @@ const MyProfile = () => {
     if (activeTab === "Guardian Details" && guardianRef.current) {
       return guardianRef.current.save();
     }
+    if (activeTab === "Education Details" && educationRef.current) {
+      return educationRef.current.save();
+    }
+    if (activeTab === "Course Details" && courseRef.current) {
+      return courseRef.current.save();
+    }
+    if (activeTab === "Documents" && documentsRef.current) {
+      return documentsRef.current.save();
+    }
     return true;
   };
 
-  const onSubmit = async (data: ProfileFormData) => {
-    const ok = await saveActiveTab();
-    if (!ok) return;
-    console.log(data);
+  const handleFinalSave = async () => {
+    await saveActiveTab();
   };
 
   const currentTabIndex = tabs.findIndex((t) => t.label === activeTab);
@@ -147,10 +218,6 @@ const MyProfile = () => {
       setActiveTab(tabs[currentTabIndex - 1].label);
     }
   };
-
-  const values = methods.watch();
-
-console.log(values);
 
   return (
     <>
@@ -216,9 +283,6 @@ console.log(values);
               <span className="flex items-center gap-1.5">
                 <Mail className="w-3.5 h-3.5" /> {bannerInfo.email || "—"}
               </span>
-              <span className="flex items-center gap-1.5">
-                <Calendar className="w-3.5 h-3.5" /> 12 Sept 2025 – 12 Dec 2025
-              </span>
             </motion.div>
           </div>
         </div>
@@ -271,96 +335,71 @@ console.log(values);
       {/* Tab Content */}
       <div className="flex-1 px-10 py-6 pb-10">
         <FormProvider {...methods}>
-          <form onSubmit={methods.handleSubmit(onSubmit)}>
-            <div
+          <div
               key={activeTab}
               className="bg-white/[0.6] border border-white/[0.88] rounded-2xl p-8 backdrop-blur-[20px] shadow-[var(--shadow-sm)]"
             >
-                {/* Header with title and buttons */}
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-lg font-bold text-foreground">
-                    {activeTab}
-                  </h2>
-                  <div className="flex gap-3">
-                    {currentTabIndex > 0 && (
-                      <button
-                        type="button"
-                        onClick={handleBack}
-                        className="px-8 py-2.5 bg-white/[0.65] border border-foreground/[0.12] text-foreground rounded-xl text-sm font-semibold hover:bg-white/[0.85] transition-all"
-                      >
-                        Back
-                      </button>
-                    )}
-                    {currentTabIndex < tabs.length - 1 ? (
-                      <button
-                        type="button"
-                        onClick={handleNext}
-                        className="px-8 py-2.5 bg-gradient-to-br from-primary to-primary-light text-primary-foreground rounded-xl text-sm font-bold shadow-[var(--shadow-primary)] hover:shadow-[0_12px_36px_hsl(342_80%_53%/0.5)] hover:-translate-y-0.5 transition-all duration-300"
-                      >
-                        Save & Next
-                      </button>
-                    ) : (
-                      <button
-                        type="submit"
-                        className="px-8 py-2.5 bg-gradient-to-br from-primary to-primary-light text-primary-foreground rounded-xl text-sm font-bold shadow-[var(--shadow-primary)] hover:shadow-[0_12px_36px_hsl(342_80%_53%/0.5)] hover:-translate-y-0.5 transition-all duration-300"
-                      >
-                        Save
-                      </button>
-                    )}
-                  </div>
-                </div>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-lg font-bold text-foreground">
+                  {activeTab}
+                </h2>
+              </div>
 
-                {activeTab === "Personal Details" ? (
-                  <PersonalDetails
-                    ref={personalRef}
-                    existingPictureUrl={bannerInfo.profilePicture}
-                    onSaved={fetchPersonalDetails}
-                  />
-                ) : activeTab === "Location Details" ? (
-                  <LocationDetails
-                    ref={locationRef}
-                    onSaved={fetchPersonalDetails}
-                    />
-                  ) : activeTab === "Guardian Details" ? (
-                    <GuardianDetails
-                    ref={guardianRef}
-                    onSaved={()=>{}}
-                  />
-                )
-                 : (
-                  ActiveComponent && <ActiveComponent />
+              {activeTab === "Personal Details" ? (
+                <PersonalDetails
+                  ref={personalRef}
+                  existingPictureUrl={bannerInfo.profilePicture}
+                  onSaved={fetchPersonalDetails}
+                />
+              ) : activeTab === "Location Details" ? (
+                <LocationDetails
+                  ref={locationRef}
+                  onSaved={fetchPersonalDetails}
+                />
+              ) : activeTab === "Guardian Details" ? (
+                <GuardianDetails ref={guardianRef} />
+              ) : activeTab === "Education Details" ? (
+                <EducationDetails ref={educationRef} />
+              ) : activeTab === "Course Details" ? (
+                <CourseDetails ref={courseRef} />
+              ) : 
+              activeTab === "Documents" ? (
+                <Documents ref={documentsRef} />
+              ) : 
+              (
+                ActiveComponent && <ActiveComponent />
+              )}
+
+              {/* Bottom Buttons */}
+              <div className="flex justify-end gap-3 mt-8 pt-6 border-t border-foreground/[0.06]">
+                {currentTabIndex > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleBack}
+                    className="px-8 py-2.5 bg-white/[0.65] border border-foreground/[0.12] text-foreground rounded-xl text-sm font-semibold hover:bg-white/[0.85] transition-all"
+                  >
+                    Back
+                  </button>
                 )}
-
-                {/* Bottom Buttons */}
-                <div className="flex justify-end gap-3 mt-8 pt-6 border-t border-foreground/[0.06]">
-                  {currentTabIndex > 0 && (
-                    <button
-                      type="button"
-                      onClick={handleBack}
-                      className="px-8 py-2.5 bg-white/[0.65] border border-foreground/[0.12] text-foreground rounded-xl text-sm font-semibold hover:bg-white/[0.85] transition-all"
-                    >
-                      Back
-                    </button>
-                  )}
-                  {currentTabIndex < tabs.length - 1 ? (
-                    <button
-                      type="button"
-                      onClick={handleNext}
-                      className="px-8 py-2.5 bg-gradient-to-br from-primary to-primary-light text-primary-foreground rounded-xl text-sm font-bold shadow-[var(--shadow-primary)] hover:shadow-[0_12px_36px_hsl(342_80%_53%/0.5)] hover:-translate-y-0.5 transition-all duration-300"
-                    >
-                      Save & Next
-                    </button>
-                  ) : (
-                    <button
-                      type="submit"
-                      className="px-8 py-2.5 bg-gradient-to-br from-primary to-primary-light text-primary-foreground rounded-xl text-sm font-bold shadow-[var(--shadow-primary)] hover:shadow-[0_12px_36px_hsl(342_80%_53%/0.5)] hover:-translate-y-0.5 transition-all duration-300"
-                    >
-                      Save
-                    </button>
-                  )}
-                </div>
+                {currentTabIndex < tabs.length - 1 ? (
+                  <button
+                    type="button"
+                    onClick={handleNext}
+                    className="px-8 py-2.5 bg-gradient-to-br from-primary to-primary-light text-primary-foreground rounded-xl text-sm font-bold shadow-[var(--shadow-primary)] hover:shadow-[0_12px_36px_hsl(342_80%_53%/0.5)] hover:-translate-y-0.5 transition-all duration-300"
+                  >
+                    Save & Next
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleFinalSave}
+                    className="px-8 py-2.5 bg-gradient-to-br from-primary to-primary-light text-primary-foreground rounded-xl text-sm font-bold shadow-[var(--shadow-primary)] hover:shadow-[0_12px_36px_hsl(342_80%_53%/0.5)] hover:-translate-y-0.5 transition-all duration-300"
+                  >
+                    Save
+                  </button>
+                )}
+              </div>
             </div>
-          </form>
         </FormProvider>
       </div>
 
