@@ -88,7 +88,7 @@ const Register = () => {
       userName: "", password: "", confirmPassword: "",
       stateId: "", cityId: "", address: "",
       guardians: [{ traineeguardiandetailId: "", guardianType: "", relation: "", firstName: "", lastName: "", mobileNumber: "", mobileNumber2: "" }],
-      educations: [{ traineeeducationdetailId: "", educationType: "", education: "", boardId: "", instituteId: "", passingYear: "", percentage: "", isCompleted: "0", document: "", url: "" }],
+      educations: [{ traineeeducationdetailId: "", educationType: "", education: "", boardId: "", instituteId: "", passingYear: "", percentage: "", isCompleted: "0", document: "", url: "", showInCertificate: "1" }],
       traineecourseId: "", course: "", enrollmentType: "", traineeArea: "", batchDay: "", batchTime: "",
       joiningDate: null, hasLaptop: null, computerId: "",
       aadharNumber: "", documents: [],

@@ -155,6 +155,7 @@ export const educationDetailsSchema = z
           isCompleted: z.string(),
           document: z.string().optional().default(""),
           url: z.string().optional().default(""),
+          showInCertificate: z.string().optional().default("0"),
         }),
       )
       .min(1),

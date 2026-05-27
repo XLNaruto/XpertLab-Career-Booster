@@ -120,7 +120,7 @@ const EducationDetails = forwardRef<StepHandle, EducationDetailsProps>(({ onSave
       var data = response.data?.data;
       const list: any[] = data ?? [];
       if (list.length > 0) {
-        const filterData = list.map((item: any) => ({
+        const filterData = list.map((item: any, i: number) => ({
           traineeeducationdetailId: String(item.traineeeducationdetailId ?? ""),
           educationType: item.educationType ?? "",
           passingYear: fromApiYearMonth(item.passingYear ?? ""),
@@ -131,6 +131,7 @@ const EducationDetails = forwardRef<StepHandle, EducationDetailsProps>(({ onSave
           isCompleted: String(item.isCompleted ?? "0"),
           document: item.document ?? "",
           url: item.url ?? "",
+          showInCertificate: item.showInCertificate != null ? String(item.showInCertificate) : (i === 0 ? "1" : "0"),
         }));
         methods.setValue("educations", filterData);
       }
@@ -216,6 +217,7 @@ const EducationDetails = forwardRef<StepHandle, EducationDetailsProps>(({ onSave
     save: async () => {
       submittedRef.current = true;
       const educations = methods.getValues("educations");
+      const hasCertificate = educations.some((e) => e.showInCertificate === "1");
       const result = educationDetailsSchema.safeParse({ educations });
       if (!result.success) {
         methods.clearErrors();
@@ -223,6 +225,10 @@ const EducationDetails = forwardRef<StepHandle, EducationDetailsProps>(({ onSave
           const path = issue.path.join(".");
           methods.setError(path as any, { type: "manual", message: issue.message });
         });
+        return false;
+      }
+      if (!hasCertificate) {
+        toasterrormsg("Please select at least one education to show in certificate");
         return false;
       }
 
@@ -238,6 +244,7 @@ const EducationDetails = forwardRef<StepHandle, EducationDetailsProps>(({ onSave
           percentage: e.isCompleted === "1" ? e.percentage : "0",
           isCompleted: e.isCompleted,
           document: e.document,
+          showInCertificate: e.showInCertificate === "1" ? 1 : 0,
         })),
       };
 
@@ -362,7 +369,7 @@ const EducationDetails = forwardRef<StepHandle, EducationDetailsProps>(({ onSave
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 items-end">
+              <div className="grid grid-cols-2 gap-3 items-start">
                 <div>
                   <label className={labelClass}>{isCompleted ? "Passing Year" : "Academic Year"} <span className="text-primary">*</span></label>
                   <Controller
@@ -499,6 +506,40 @@ const EducationDetails = forwardRef<StepHandle, EducationDetailsProps>(({ onSave
                   )}
                 </div>
               )}
+
+              <div>
+                <label className={labelClass}>Show in Certificate</label>
+                <Controller
+                  name={`educations.${idx}.showInCertificate`}
+                  control={control}
+                  render={({ field }) => (
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <div
+                        className="relative w-11 h-6 rounded-full transition-colors"
+                        style={{ backgroundColor: field.value === "1" ? "hsl(342 80% 53%)" : "hsl(var(--foreground) / 0.1)" }}
+                      >
+                        <input
+                          type="checkbox"
+                          className="peer sr-only"
+                          checked={field.value === "1"}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              const all = methods.getValues("educations");
+                              all.forEach((_, i) => {
+                                methods.setValue(`educations.${i}.showInCertificate`, i === idx ? "1" : "0");
+                              });
+                            } else {
+                              field.onChange("0");
+                            }
+                          }}
+                        />
+                        <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${field.value === "1" ? "translate-x-5" : ""}`} />
+                      </div>
+                      <span className="text-sm text-muted-foreground">{field.value === "1" ? "Yes" : "No"}</span>
+                    </label>
+                  )}
+                />
+              </div>
             </div>
           </div>
         );
@@ -518,6 +559,7 @@ const EducationDetails = forwardRef<StepHandle, EducationDetailsProps>(({ onSave
             isCompleted: "0",
             document: "",
             url: "",
+            showInCertificate: "0",
           })
         }
         className="text-sm font-semibold text-primary hover:opacity-70 transition-opacity"

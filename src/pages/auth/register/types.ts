@@ -19,6 +19,7 @@ export interface Education {
   isCompleted: string;
   document: string;
   url: string;
+  showInCertificate: string;
 }
 
 export interface RegisterFormData {
