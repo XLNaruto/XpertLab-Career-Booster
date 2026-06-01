@@ -29,7 +29,7 @@ type Option = { value: string; label: string };
 
 const enrollmentTypeOptions: Option[] = [
   { value: "TRAINING", label: "Training" },
-  { value: "CERTIFICATE", label: "Certificate" },
+  { value: "CERTIFICATE_ONLY", label: "Certificate" },
 ];
 
 const deviceAvailabilityOptions = [
