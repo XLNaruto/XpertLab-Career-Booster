@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Calendar, momentLocalizer, type ToolbarProps } from "react-big-calendar";
 import moment from "moment";
 import "react-big-calendar/lib/css/react-big-calendar.css";
+import { apiHeader, postData } from "@/utils/ApiHelper";
 
 // Holiday list data
 const holidays = [
@@ -359,6 +360,19 @@ const Dashboard = () => {
   const { displayed, done } = useTypewriter(greeting, 55, 400);
   const attendanceRef = useRef<HTMLDivElement>(null);
   const [attendanceHeight, setAttendanceHeight] = useState<number | undefined>(undefined);
+
+  const dashboardAnalysisApiCall = async () => {
+    const response: any = await postData(
+      "trainee/dashboard/analysis",
+      {},
+      apiHeader(false, 0)
+    );
+    console.log("trainee/dashboard/analysis response:", response);
+  };
+
+  useEffect(() => {
+    dashboardAnalysisApiCall();
+  }, []);
 
   useEffect(() => {
     if (!attendanceRef.current) return;
