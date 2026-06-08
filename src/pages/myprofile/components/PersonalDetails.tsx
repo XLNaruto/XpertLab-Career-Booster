@@ -159,9 +159,9 @@ const PersonalDetails = forwardRef<PersonalDetailsHandle, PersonalDetailsProps>(
           }
 
           const response: any = await postData(
-            "trainee/profile/update",
+            "private/trainee/personaldetail/update",
             param,
-            apiHeader(true, 0),
+            apiHeader(true, 2),
           );
 
           if (

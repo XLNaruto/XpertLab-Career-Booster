@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { motion, useInView } from "motion/react";
 import WelcomePopup from "@/components/WelcomePopup";
 import { CalendarDays, CheckCircle2, XCircle, TrendingUp, Clock, Star, PartyPopper, ChevronLeft, ChevronRight } from "lucide-react";
@@ -8,59 +8,83 @@ import { Calendar, momentLocalizer, type ToolbarProps } from "react-big-calendar
 import moment from "moment";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import { apiHeader, postData } from "@/utils/ApiHelper";
+import { getEncodedCookie, toasterrormsg } from "@/utils/reusable";
 
-// Holiday list data
-const holidays = [
-  { date: "Jan 26", name: "Republic Day" },
-  { date: "Mar 14", name: "Holi" },
-  { date: "Mar 31", name: "Id-ul-Fitr" },
-  { date: "Apr 10", name: "Mahavir Jayanti" },
-  { date: "Apr 14", name: "Ambedkar Jayanti" },
-  { date: "Apr 18", name: "Good Friday" },
-  { date: "May 1", name: "May Day" },
-  { date: "Jun 7", name: "Id-ul-Adha" },
-  { date: "Jul 6", name: "Muharram" },
-  { date: "Aug 15", name: "Independence Day" },
-  { date: "Aug 16", name: "Janmashtami" },
-  { date: "Sep 5", name: "Milad-un-Nabi" },
-  { date: "Oct 2", name: "Gandhi Jayanti" },
-  { date: "Oct 20", name: "Dussehra" },
-  { date: "Nov 9", name: "Diwali" },
-  { date: "Nov 15", name: "Guru Nanak Jayanti" },
-  { date: "Dec 25", name: "Christmas" },
-];
+// Stat card shape for the attendance summary
+type StatCard = {
+  label: string;
+  value: number;
+  icon: ReactNode;
+  iconBg: string;
+};
 
-// Attendance summary cards data
-const attendanceStats = [
-  { label: "Total Days", value: "68", icon: <CalendarDays className="w-5 h-5" />, iconBg: "bg-secondary/10 text-secondary" },
-  { label: "Present Days", value: "59", icon: <CheckCircle2 className="w-5 h-5" />, iconBg: "bg-green-500/10 text-green-500" },
-  { label: "Absent Days", value: "9", icon: <XCircle className="w-5 h-5" />, iconBg: "bg-primary/10 text-primary" },
-  { label: "Extra Days", value: "3", icon: <Star className="w-5 h-5" />, iconBg: "bg-amber-500/10 text-amber-500" },
-];
+// Shape of the dashboard analysis API response
+type DashboardAnalysis = {
+  trainingProgress: {
+    totalDays: number;
+    completedDays: number;
+    remainingDays: number;
+    percentage: number;
+  };
+  feePayment: {
+    totalFee: number;
+    paidFee: number;
+    pendingFee: number;
+    percentPaid: number;
+  };
+  attendance: {
+    totalDays: number;
+    presentDays: number;
+    absentDays: number;
+    extraDays: number;
+  };
+  training: {
+    overall: {
+      completedExercises: number;
+      totalExercises: number;
+      percentage: number;
+    };
+    courses: {
+      technologyId: string;
+      name: string;
+      completed: number;
+      total: number;
+      percentage: number;
+    }[];
+  };
+};
 
-// Course-wise exercise progress
-const courses = [
-  { name: "HTML", exercises: 12, completed: 10 },
-  { name: "CSS", exercises: 15, completed: 11 },
-  { name: "JavaScript", exercises: 20, completed: 14 },
-  { name: "React", exercises: 18, completed: 8 },
-  { name: "TypeScript", exercises: 10, completed: 4 },
-  { name: "Tailwind CSS", exercises: 8, completed: 5 },
-];
+const emptyAnalysis: DashboardAnalysis = {
+  trainingProgress: { totalDays: 0, completedDays: 0, remainingDays: 0, percentage: 0 },
+  feePayment: { totalFee: 0, paidFee: 0, pendingFee: 0, percentPaid: 0 },
+  attendance: { totalDays: 0, presentDays: 0, absentDays: 0, extraDays: 0 },
+  training: { overall: { completedExercises: 0, totalExercises: 0, percentage: 0 }, courses: [] },
+};
 
-// Aggregate exercise totals
-const totalExercises = courses.reduce((sum, c) => sum + c.exercises, 0);
-const totalCompleted = courses.reduce((sum, c) => sum + c.completed, 0);
+// Status of a single day in the attendance calendar
+type DayStatus = "present" | "absent" | "upcoming" | "weekend" | "holiday";
+
+type CalendarDay = {
+  date: string;
+  day: number;
+  weekday: number;
+  isToday: boolean;
+  status: DayStatus;
+};
+
+// Shape of the dashboard calendar API response
+type DashboardCalendar = {
+  month: number;
+  year: number;
+  today: string;
+  courseStartDate: string;
+  courseEndDate: string;
+  days: CalendarDay[];
+  holidays: { holidayId: string; name: string; from: string; to: string }[];
+};
 
 // react-big-calendar localizer
 const localizer = momentLocalizer(moment);
-
-// Dates when the student was present (Feb 2026)
-const presentDates = new Set([
-  "2026-02-03", "2026-02-04", "2026-02-05", "2026-02-06", "2026-02-08", "2026-02-09",
-  "2026-02-10", "2026-02-11", "2026-02-12", "2026-02-13",
-  "2026-02-24", "2026-02-25", "2026-02-26", "2026-02-27",
-]);
 
 // Typewriter text reveal hook
 const useTypewriter = (text: string, speed = 60, delay = 300) => {
@@ -89,10 +113,10 @@ const useTypewriter = (text: string, speed = 60, delay = 300) => {
 };
 
 // Animated stat card with count-up
-const CountUpCard = ({ stat, index }: { stat: typeof attendanceStats[number]; index: number }) => {
+const CountUpCard = ({ stat, index }: { stat: StatCard; index: number }) => {
   const ref = useRef<HTMLDivElement>(null);
   const isInView = useInView(ref, { once: true });
-  const target = parseInt(stat.value);
+  const target = stat.value;
   const [count, setCount] = useState(0);
 
   useEffect(() => {
@@ -155,12 +179,43 @@ const CustomToolbar = ({ label, onNavigate }: { label: string; onNavigate: (acti
 );
 
 // Attendance calendar using react-big-calendar
-const AttendanceCalendar = () => {
-  const [currentDate, setCurrentDate] = useState(new Date(2026, 1, 27)); // Feb 27, 2026
+const AttendanceCalendar = ({
+  calendar,
+  onMonthChange,
+}: {
+  calendar: DashboardCalendar | null;
+  onMonthChange: (month: number, year: number) => void;
+}) => {
+  const [currentDate, setCurrentDate] = useState(new Date());
 
-  const handleNavigate = useCallback((date: Date) => {
-    setCurrentDate(date);
-  }, []);
+  const handleNavigate = useCallback(
+    (date: Date) => {
+      setCurrentDate(date);
+      onMonthChange(moment(date).month() + 1, moment(date).year());
+    },
+    [onMonthChange],
+  );
+
+  // Map each date string to its status (attendance days + holidays)
+  const statusByDate = useMemo(() => {
+    const map: Record<string, DayStatus> = {};
+    (calendar?.days || []).forEach((d) => {
+      map[d.date] = d.status;
+    });
+    (calendar?.holidays || []).forEach((h) => {
+      if (!h?.from) return;
+      const start = moment(h.from).startOf("day");
+      const end = moment(h.to || h.from).startOf("day");
+      for (let d = start.clone(); d.isSameOrBefore(end, "day"); d.add(1, "day")) {
+        map[d.format("YYYY-MM-DD")] = "holiday";
+      }
+    });
+    return map;
+  }, [calendar]);
+
+  const todayStr = calendar?.today || "";
+  const courseStartStr = calendar?.courseStartDate || "";
+  const courseEndStr = calendar?.courseEndDate || "";
 
   const components = useMemo(() => ({
     toolbar: (props: ToolbarProps) => <CustomToolbar label={props.label} onNavigate={props.onNavigate} />,
@@ -170,23 +225,48 @@ const AttendanceCalendar = () => {
         const cellMonth = moment(date).month();
         const viewMonth = moment(currentDate).month();
         const isOutside = cellMonth !== viewMonth;
-        const isToday = moment(date).isSame(new Date(2026, 1, 27), "day");
-        const isPresent = presentDates.has(dateStr);
+        const isToday = dateStr === todayStr;
+        const dow = moment(date).day(); // 0 = Sunday, 6 = Saturday
+        const isWeekend = dow === 0 || dow === 6;
+        // Days before the course starts or after it ends are disabled
+        const isOutsideCourse =
+          (!!courseStartStr && moment(date).isBefore(moment(courseStartStr), "day")) ||
+          (!!courseEndStr && moment(date).isAfter(moment(courseEndStr), "day"));
+        // Saturday & Sunday are always off days
+        const status: DayStatus | undefined = isWeekend
+          ? "weekend"
+          : statusByDate[dateStr];
 
         let bg = "transparent";
         let shadow = "none";
         let color = "hsl(var(--foreground) / 0.6)";
+        let opacity = 1;
 
         if (isOutside) {
           color = "hsl(var(--foreground) / 0.2)";
+        } else if (isOutsideCourse) {
+          // Disabled — outside the course period
+          color = "hsl(var(--foreground) / 0.25)";
+          opacity = 0.4;
         } else if (isToday) {
           bg = "linear-gradient(to bottom right, hsl(var(--secondary)), hsl(var(--secondary) / 0.8))";
           shadow = "0 4px 16px hsl(207 65% 50% / 0.3)";
           color = "white";
-        } else if (isPresent) {
+        } else if (status === "present") {
           bg = "rgb(220 252 231)";
           color = "rgb(21 128 61)";
+        } else if (status === "absent") {
+          bg = "hsl(342 80% 53% / 0.12)";
+          color = "hsl(342 80% 53%)";
+        } else if (status === "holiday") {
+          bg = "rgb(254 243 199)";
+          color = "rgb(180 83 9)";
+        } else if (status === "weekend") {
+          color = "hsl(var(--foreground) / 0.25)";
         }
+
+        const highlighted =
+          isToday || status === "present" || status === "absent" || status === "holiday";
 
         return (
           <div
@@ -200,7 +280,8 @@ const AttendanceCalendar = () => {
               boxShadow: shadow,
               borderRadius: "8px",
               color,
-              fontWeight: isToday || isPresent ? 600 : 500,
+              opacity,
+              fontWeight: highlighted ? 600 : 500,
               fontSize: "13px",
             }}
           >
@@ -209,7 +290,7 @@ const AttendanceCalendar = () => {
         );
       },
     },
-  }), [currentDate]);
+  }), [currentDate, statusByDate, todayStr, courseStartStr, courseEndStr]);
 
   return (
     <motion.div
@@ -346,6 +427,10 @@ const AttendanceCalendar = () => {
           <span className="text-[11px] text-muted-foreground">Absent</span>
         </div>
         <div className="flex items-center gap-2">
+          <div className="w-2.5 h-2.5 rounded-full bg-amber-400" />
+          <span className="text-[11px] text-muted-foreground">Holiday</span>
+        </div>
+        <div className="flex items-center gap-2">
           <div className="w-2.5 h-2.5 rounded-full bg-secondary" />
           <span className="text-[11px] text-muted-foreground">Today</span>
         </div>
@@ -356,22 +441,126 @@ const AttendanceCalendar = () => {
 
 // Main dashboard page component
 const Dashboard = () => {
-  const greeting = "Good morning, Sarah";
+  const [firstName, setFirstName] = useState("");
+  const hour = new Date().getHours();
+  const timeGreeting =
+    hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  const greeting = firstName ? `${timeGreeting}, ${firstName}` : timeGreeting;
   const { displayed, done } = useTypewriter(greeting, 55, 400);
   const attendanceRef = useRef<HTMLDivElement>(null);
   const [attendanceHeight, setAttendanceHeight] = useState<number | undefined>(undefined);
+  const [analysis, setAnalysis] = useState<DashboardAnalysis>(emptyAnalysis);
+  const [calendar, setCalendar] = useState<DashboardCalendar | null>(null);
+
+  const fetchPersonalDetails = async () => {
+    const traineeId = getEncodedCookie("traineeId");
+    if (!traineeId) return;
+    const response: any = await postData(
+      "private/trainee/personaldetail/get",
+      { traineeId },
+      apiHeader(false, 2)
+    );
+    if (
+      String(response?.status) === "200" &&
+      String(response.data?.status) === "200"
+    ) {
+      const data = response.data.data || {};
+      setFirstName(data.firstName || "");
+    }
+  };
+
+  useEffect(() => {
+    fetchPersonalDetails();
+  }, []);
 
   const dashboardAnalysisApiCall = async () => {
     const response: any = await postData(
-      "trainee/dashboard/analysis",
+      "private/trainee/dashboard/analysis",
       {},
-      apiHeader(false, 0)
+      apiHeader(false, 2)
     );
-    console.log("trainee/dashboard/analysis response:", response);
+    if (
+      String(response?.status) === "200" &&
+      String(response.data?.status) === "200"
+    ) {
+      const data = response.data.data || {};
+      setAnalysis({
+        ...emptyAnalysis,
+        ...data,
+        trainingProgress: { ...emptyAnalysis.trainingProgress, ...data.trainingProgress },
+        feePayment: { ...emptyAnalysis.feePayment, ...data.feePayment },
+        attendance: { ...emptyAnalysis.attendance, ...data.attendance },
+        training: {
+          overall: { ...emptyAnalysis.training.overall, ...data.training?.overall },
+          courses: data.training?.courses || [],
+        },
+      });
+    } else {
+      toasterrormsg(response?.data?.message || "Something went wrong");
+    }
+  };
+
+  const dashboardCalendarApiCall = async (month: number, year: number) => {
+    const response: any = await postData(
+      "private/trainee/dashboard/calendar",
+      { month, year },
+      apiHeader(false, 2)
+    );
+    if (
+      String(response?.status) === "200" &&
+      String(response.data?.status) === "200"
+    ) {
+      setCalendar(response.data.data || null);
+    } else {
+      toasterrormsg(response?.data?.message || "Something went wrong");
+    }
   };
 
   useEffect(() => {
     dashboardAnalysisApiCall();
+    dashboardCalendarApiCall(moment().month() + 1, moment().year());
+  }, []);
+
+  const { trainingProgress, feePayment, attendance, training } = analysis;
+  const courses = training.courses;
+  const overall = training.overall;
+
+  const attendanceStats: StatCard[] = [
+    { label: "Total Days", value: attendance.totalDays, icon: <CalendarDays className="w-5 h-5" />, iconBg: "bg-secondary/10 text-secondary" },
+    { label: "Present Days", value: attendance.presentDays, icon: <CheckCircle2 className="w-5 h-5" />, iconBg: "bg-green-500/10 text-green-500" },
+    { label: "Absent Days", value: attendance.absentDays, icon: <XCircle className="w-5 h-5" />, iconBg: "bg-primary/10 text-primary" },
+    { label: "Extra Days", value: attendance.extraDays, icon: <Star className="w-5 h-5" />, iconBg: "bg-amber-500/10 text-amber-500" },
+  ];
+
+  const formatCurrency = (amount: number) => `₹${(amount || 0).toLocaleString("en-IN")}`;
+
+  // Holidays for the viewed month(s), from the calendar API, sorted by date
+  type HolidayItem = { name: string; date: string; from: moment.Moment; to: moment.Moment };
+  const upcomingHolidays: HolidayItem[] = (calendar?.holidays || [])
+    .map((h) => {
+      const from = moment(h.from).startOf("day");
+      const to = moment(h.to || h.from).startOf("day");
+      const sameDay = from.isSame(to, "day");
+      return {
+        name: h.name || "Holiday",
+        date: sameDay
+          ? from.format("DD/MM/YYYY")
+          : `${from.format("DD/MM/YYYY")} to ${to.format("DD/MM/YYYY")}`,
+        from,
+        to,
+      };
+    })
+    .sort((a, b) => a.from.valueOf() - b.from.valueOf());
+
+  // Group upcoming holidays by month for display
+  const holidayGroups = upcomingHolidays.reduce<
+    { label: string; items: HolidayItem[] }[]
+  >((groups, h) => {
+    const label = h.from.format("MMMM YYYY");
+    const existing = groups.find((g) => g.label === label);
+    if (existing) existing.items.push(h);
+    else groups.push({ label, items: [h] });
+    return groups;
   }, []);
 
   useEffect(() => {
@@ -425,11 +614,11 @@ const Dashboard = () => {
               </motion.div>
               <div>
                 <h3 className="text-[13.5px] font-semibold text-foreground mb-1">Training Progress</h3>
-                <p className="text-[12.5px] text-muted-foreground leading-relaxed">You have completed <span className="font-semibold text-secondary">30 out of 90 days</span> of the training program. Only <span className="font-semibold text-secondary">60 days remaining</span> to complete the training.</p>
+                <p className="text-[12.5px] text-muted-foreground leading-relaxed">You have completed <span className="font-semibold text-secondary">{trainingProgress.completedDays} out of {trainingProgress.totalDays} days</span> of the training program. Only <span className="font-semibold text-secondary">{trainingProgress.remainingDays} days remaining</span> to complete the training.</p>
                 <div className="mt-3 w-full h-2 rounded-full bg-secondary/10 overflow-hidden">
                   <motion.div
                     initial={{ width: 0 }}
-                    animate={{ width: "33%" }}
+                    animate={{ width: `${trainingProgress.percentage}%` }}
                     transition={{ duration: 1.2, delay: 1.1, ease: "easeOut" }}
                     className="h-full rounded-full bg-gradient-to-r from-secondary to-secondary/70"
                   />
@@ -440,7 +629,7 @@ const Dashboard = () => {
                   transition={{ delay: 1.8 }}
                   className="text-[11px] text-muted-foreground mt-1.5"
                 >
-                  33% completed
+                  {trainingProgress.percentage}% completed
                 </motion.p>
               </div>
             </motion.div>
@@ -461,11 +650,11 @@ const Dashboard = () => {
               </motion.div>
               <div>
                 <h3 className="text-[13.5px] font-semibold text-foreground mb-1">Fee Payment Status</h3>
-                <p className="text-[12.5px] text-muted-foreground leading-relaxed">Total fee: <span className="font-semibold text-foreground">₹12,000</span>. Paid: <span className="font-semibold text-secondary">₹1,000</span>. Remaining: <span className="font-semibold text-primary">₹11,000</span> — please pay as soon as possible to continue your training.</p>
+                <p className="text-[12.5px] text-muted-foreground leading-relaxed">Total fee: <span className="font-semibold text-foreground">{formatCurrency(feePayment.totalFee)}</span>. Paid: <span className="font-semibold text-secondary">{formatCurrency(feePayment.paidFee)}</span>. Remaining: <span className="font-semibold text-primary">{formatCurrency(feePayment.pendingFee)}</span> — please pay as soon as possible to continue your training.</p>
                 <div className="mt-3 w-full h-2 rounded-full bg-primary/10 overflow-hidden">
                   <motion.div
                     initial={{ width: 0 }}
-                    animate={{ width: "8.3%" }}
+                    animate={{ width: `${feePayment.percentPaid}%` }}
                     transition={{ duration: 1, delay: 1.25, ease: "easeOut" }}
                     className="h-full rounded-full bg-gradient-to-r from-primary to-primary-light"
                   />
@@ -476,7 +665,7 @@ const Dashboard = () => {
                   transition={{ delay: 1.9 }}
                   className="text-[11px] text-muted-foreground mt-1.5"
                 >
-                  8% paid
+                  {feePayment.percentPaid}% paid
                 </motion.p>
               </div>
             </motion.div>
@@ -519,26 +708,35 @@ const Dashboard = () => {
                     <DialogHeader>
                       <DialogTitle className="flex items-center gap-2 text-lg">
                         <PartyPopper className="w-5 h-5 text-primary" />
-                        Holiday List — 2026
+                        Holidays
                       </DialogTitle>
                     </DialogHeader>
                     <div className="max-h-[400px] overflow-y-auto pr-1 -mr-1">
-                      <div className="divide-y divide-border">
-                        {holidays.map((h, i) => (
-                          <motion.div
-                            key={i}
-                            initial={{ opacity: 0, x: -15 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ duration: 0.3, delay: 0.05 * i }}
-                            className="flex items-center justify-between py-3 px-1"
-                          >
-                            <span className="text-sm font-medium text-foreground">{h.name}</span>
-                            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-primary/10 text-primary">{h.date}</span>
-                          </motion.div>
-                        ))}
-                      </div>
+                      {holidayGroups.length === 0 ? (
+                        <p className="text-sm text-muted-foreground text-center py-6">
+                          No upcoming holidays
+                        </p>
+                      ) : (
+                        holidayGroups.map((group) => (
+                          <div key={group.label} className="mb-3 last:mb-0">
+                            <div className="divide-y divide-border">
+                              {group.items.map((h, i) => (
+                                <motion.div
+                                  key={i}
+                                  initial={{ opacity: 0, x: -15 }}
+                                  animate={{ opacity: 1, x: 0 }}
+                                  transition={{ duration: 0.3, delay: 0.05 * i }}
+                                  className="flex items-center justify-between py-3 px-1"
+                                >
+                                  <span className="text-sm font-medium text-foreground">{h.name}</span>
+                                  <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-primary/10 text-primary">{h.date}</span>
+                                </motion.div>
+                              ))}
+                            </div>
+                          </div>
+                        ))
+                      )}
                     </div>
-                    <p className="text-[11px] text-muted-foreground text-center mt-1">Total {holidays.length} holidays this year</p>
                   </DialogContent>
                 </Dialog>
               </div>
@@ -551,7 +749,7 @@ const Dashboard = () => {
               </div>
 
               {/* Calendar */}
-              <AttendanceCalendar />
+              <AttendanceCalendar calendar={calendar} onMonthChange={dashboardCalendarApiCall} />
             </motion.div>
 
             {/* 2. Training Analysis */}
@@ -599,15 +797,15 @@ const Dashboard = () => {
                     </motion.div>
                     <div>
                       <div className="text-[13px] font-semibold text-foreground">Overall Progress</div>
-                      <div className="text-[11px] text-muted-foreground">{totalCompleted} of {totalExercises} exercises completed</div>
+                      <div className="text-[11px] text-muted-foreground">{overall.completedExercises} of {overall.totalExercises} exercises completed</div>
                     </div>
                   </div>
-                  <div className="text-[22px] font-bold font-serif text-secondary">{Math.round((totalCompleted / totalExercises) * 100)}%</div>
+                  <div className="text-[22px] font-bold font-serif text-secondary">{overall.percentage}%</div>
                 </div>
                 <div className="w-full h-2 rounded-full bg-secondary/10 overflow-hidden">
                   <motion.div
                     initial={{ width: 0 }}
-                    animate={{ width: `${(totalCompleted / totalExercises) * 100}%` }}
+                    animate={{ width: `${overall.percentage}%` }}
                     transition={{ duration: 1.2, delay: 1, ease: "easeOut" }}
                     className="h-full rounded-full bg-gradient-to-r from-secondary to-secondary/70"
                   />
@@ -625,10 +823,10 @@ const Dashboard = () => {
               </motion.div>
               <div className="flex flex-col gap-2.5 flex-1 overflow-y-auto pr-1 -mr-1">
                 {courses.map((c, i) => {
-                  const pct = Math.round((c.completed / c.exercises) * 100);
+                  const pct = c.percentage;
                   return (
                     <motion.div
-                      key={c.name}
+                      key={c.technologyId || c.name}
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ duration: 0.35, delay: 1.1 + i * 0.1 }}
@@ -646,7 +844,7 @@ const Dashboard = () => {
                           </motion.div>
                           <div>
                             <div className="text-[13px] font-semibold text-foreground">{c.name}</div>
-                            <div className="text-[11px] text-muted-foreground">{c.completed}/{c.exercises} exercises</div>
+                            <div className="text-[11px] text-muted-foreground">{c.completed}/{c.total} exercises</div>
                           </div>
                         </div>
                         <span className={`text-[12px] font-bold ${pct === 100 ? 'text-green-600' : pct >= 50 ? 'text-secondary' : 'text-primary'}`}>{pct}%</span>

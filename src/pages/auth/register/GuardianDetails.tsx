@@ -37,7 +37,7 @@ const GuardianDetails = forwardRef<StepHandle, GuardianDetailsProps>(({ onSaved 
   const guardiansWatch = watch("guardians");
 
   const relationListApiCall = async () => {
-    var response: any = await postData("trainee/guardiandetail/relationList", {}, apiHeader(false, 0));
+    var response: any = await postData("trainee/guardiandetail/relationList", {}, apiHeader(false, 2));
 
     if (
       String(response?.status) == "200" &&
@@ -60,7 +60,7 @@ const GuardianDetails = forwardRef<StepHandle, GuardianDetailsProps>(({ onSaved 
 
   const guardianListApiCall = async (id: string) => {
     const param = { traineeId: id };
-    var response: any = await postData("trainee/guardiandetail/list", param, apiHeader(false, 0));
+    var response: any = await postData("trainee/guardiandetail/list", param, apiHeader(false, 2));
 
     if (
       String(response?.status) == "200" &&
@@ -136,7 +136,7 @@ const GuardianDetails = forwardRef<StepHandle, GuardianDetailsProps>(({ onSaved 
         })),
       };
 
-      var response: any = await postData("trainee/guardiandetail/save", payload, apiHeader(false, 0));
+      var response: any = await postData("trainee/guardiandetail/save", payload, apiHeader(false, 2));
 
       if (
         String(response?.status) == "200" &&

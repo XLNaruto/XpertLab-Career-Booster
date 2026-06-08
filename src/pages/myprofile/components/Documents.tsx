@@ -68,7 +68,7 @@ const Documents = forwardRef<DocumentDetailsHandle, DocumentDetailsProps>(
       const response: any = await postData(
         "master/traineedocument/list",
         {},
-        apiHeader(false, 0),
+        apiHeader(false, 2),
       );
       if (
         String(response?.status) === "200" &&
@@ -94,9 +94,9 @@ const Documents = forwardRef<DocumentDetailsHandle, DocumentDetailsProps>(
     ) => {
       const param = { traineeId: id };
       const response: any = await postData(
-        "trainee/documentdetail/list",
+        "private/trainee/documentdetail/list",
         param,
-        apiHeader(false, 0),
+        apiHeader(false, 2),
       );
       if (
         String(response?.status) === "200" &&
@@ -166,9 +166,9 @@ const Documents = forwardRef<DocumentDetailsHandle, DocumentDetailsProps>(
       // param.append("path", "document/");
       param.append("document", file);
       const response: any = await postData(
-        "trainee/documentdetail/uploadDocument",
+        "private/trainee/documentdetail/uploadDocument",
         param,
-        apiHeader(true, 0),
+        apiHeader(true, 2),
       );
 
       if (
@@ -254,9 +254,9 @@ const Documents = forwardRef<DocumentDetailsHandle, DocumentDetailsProps>(
           };
 
           const response: any = await postData(
-            "trainee/documentdetail/save",
+            "private/trainee/documentdetail/save",
             payload,
-            apiHeader(false, 0),
+            apiHeader(false, 2),
           );
 
           if (

@@ -94,9 +94,9 @@ export const postData = async (api: string, data: any, headers: any) => {
       const responseData = decryptData(response.data, eLevel[elevel]);
       response.data = responseData;
 
-      // if (['401', '403'].includes(String(responseData?.status))) {
-      //   handleAuthFailure();
-      // }
+      if (['401', '403'].includes(String(responseData?.status))) {
+        handleAuthFailure();
+      }
     }
 
     return response;

@@ -30,7 +30,7 @@ const LocationDetails = forwardRef<LocationDetailsHandle, LocationDetailsProps>(
     const stateValue = methods.watch("stateId");
 
     const stateListApiCall = async () => {
-      const response: any = await postData("master/state/list", {}, apiHeader(false, 0));
+      const response: any = await postData("master/state/list", {}, apiHeader(false, 2));
       if (String(response?.status) === "200" && String(response.data?.status) === "200") {
         const opt: Option[] = (response.data.data?.list || []).map((val: any) => ({
           value: String(val.stateId),
@@ -50,7 +50,7 @@ const LocationDetails = forwardRef<LocationDetailsHandle, LocationDetailsProps>(
       const response: any = await postData(
         "master/city/list",
         { stateId },
-        apiHeader(false, 0)
+        apiHeader(false, 2)
       );
       if (String(response?.status) === "200" && String(response.data?.status) === "200") {
         const opt: Option[] = (response.data.data?.list || []).map((val: any) => ({
@@ -90,9 +90,9 @@ const LocationDetails = forwardRef<LocationDetailsHandle, LocationDetailsProps>(
         };
 
         const response: any = await postData(
-          "trainee/profile/saveLocation",
+          "private/trainee/personaldetail/saveLocation",
           payload,
-          apiHeader(false, 0)
+          apiHeader(false, 2)
         );
 
         if (String(response?.status) === "200" && String(response.data?.status) === "200") {

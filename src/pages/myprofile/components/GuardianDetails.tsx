@@ -63,7 +63,7 @@ const GuardianDetails = forwardRef<GuardianDetailsHandle, GuardianDetailsProps>(
       var response: any = await postData(
         "trainee/guardiandetail/relationList",
         {},
-        apiHeader(false, 0),
+        apiHeader(false, 2),
       );
 
       if (
@@ -88,9 +88,9 @@ const GuardianDetails = forwardRef<GuardianDetailsHandle, GuardianDetailsProps>(
     const guardianListApiCall = async (id: string) => {
       const param = { traineeId: id };
       var response: any = await postData(
-        "trainee/guardiandetail/list",
+        "private/trainee/guardiandetail/list",
         param,
-        apiHeader(false, 0),
+        apiHeader(false, 2),
       );
 
       if (
@@ -180,9 +180,9 @@ const GuardianDetails = forwardRef<GuardianDetailsHandle, GuardianDetailsProps>(
           };
 
           var response: any = await postData(
-            "trainee/guardiandetail/save",
+            "private/trainee/guardiandetail/save",
             payload,
-            apiHeader(false, 0),
+            apiHeader(false, 2),
           );
 
           if (

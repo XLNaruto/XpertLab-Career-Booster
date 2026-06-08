@@ -1,23 +1,27 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Rocket, Sparkles, Target, Zap, ArrowRight } from "lucide-react";
-import { getCookie, setCookie } from "@/utils/CookieComponent";
+import { getEncodedCookie } from "@/utils/reusable";
 
 const WelcomePopup = () => {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(0);
 
-  // Show welcome popup once per login session (cookie-based)
+  // Per-account key so the popup shows once per device, per account
+  const traineeId = getEncodedCookie("traineeId");
+  const storageKey = `welcome_seen_${traineeId || "guest"}`;
+
+  // Show welcome popup only once per device + account (localStorage-based)
   useEffect(() => {
-    const hasSeenWelcome = getCookie("welcome_seen");
+    const hasSeenWelcome = localStorage.getItem(storageKey);
     if (!hasSeenWelcome) {
       const timer = setTimeout(() => setOpen(true), 800);
       return () => clearTimeout(timer);
     }
-  }, []);
+  }, [storageKey]);
 
   const handleClose = () => {
-    setCookie("welcome_seen", "true", {});
+    localStorage.setItem(storageKey, "true");
     setOpen(false);
   };
 

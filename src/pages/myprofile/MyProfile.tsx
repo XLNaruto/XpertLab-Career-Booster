@@ -120,7 +120,7 @@ const MyProfile = () => {
     if (!traineeId) return;
 
     const response: any = await postData(
-      "trainee/personaldetail/get",
+      "private/trainee/personaldetail/get",
       { traineeId },
       apiHeader(false, 0),
     );
@@ -387,7 +387,7 @@ const MyProfile = () => {
                     onClick={handleNext}
                     className="px-8 py-2.5 bg-gradient-to-br from-primary to-primary-light text-primary-foreground rounded-xl text-sm font-bold shadow-[var(--shadow-primary)] hover:shadow-[0_12px_36px_hsl(342_80%_53%/0.5)] hover:-translate-y-0.5 transition-all duration-300"
                   >
-                    Save & Next
+                    {activeTab === "Course Details" ? "Next" : "Save & Next"}
                   </button>
                 ) : (
                   <button

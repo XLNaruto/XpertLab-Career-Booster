@@ -209,6 +209,18 @@ export const decryptArrayOfObjects = (arr: any, keyLevel: any) => {
   });
 };
 
+export const encryptData = (data: any, keyLevel: any) => {
+  if (Array.isArray(data)) return encryptArrayOfObjects(data, keyLevel);
+  if (data && typeof data === 'object') return encryptObject(data, keyLevel);
+  return data;
+};
+
+export const decryptData = (data: any, keyLevel: any) => {
+  if (Array.isArray(data)) return decryptArrayOfObjects(data, keyLevel);
+  if (data && typeof data === 'object') return decryptObject(data, keyLevel);
+  return data;
+};
+
 // Encrypt an object by serializing it to a JSON string
 export const encryptState = (data: any) => {
   const jsonString = JSON.stringify(data); // Convert object to JSON string

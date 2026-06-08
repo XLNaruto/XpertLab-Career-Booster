@@ -71,7 +71,7 @@ const EducationDetails = forwardRef<StepHandle, EducationDetailsProps>(({ onSave
   const educationsWatch = watch("educations");
 
   const boardListApiCall = async () => {
-    var response: any = await postData("master/board/list", {}, apiHeader(false, 0));
+    var response: any = await postData("master/board/list", {}, apiHeader(false, 2));
     if (
       String(response?.status) == "200" &&
       String(response.data?.status) == "200"
@@ -88,7 +88,7 @@ const EducationDetails = forwardRef<StepHandle, EducationDetailsProps>(({ onSave
   };
 
   const instituteListApiCall = async () => {
-    var response: any = await postData("master/institute/list", {}, apiHeader(false, 0));
+    var response: any = await postData("master/institute/list", {}, apiHeader(false, 2));
     if (
       String(response?.status) == "200" &&
       String(response.data?.status) == "200"
@@ -111,7 +111,7 @@ const EducationDetails = forwardRef<StepHandle, EducationDetailsProps>(({ onSave
 
   const educationListApiCall = async (id: string) => {
     const param = { traineeId: id };
-    var response: any = await postData("trainee/educationdetail/list", param, apiHeader(false, 0));
+    var response: any = await postData("trainee/educationdetail/list", param, apiHeader(false, 2));
 
     if (
       String(response?.status) == "200" &&
@@ -161,7 +161,7 @@ const EducationDetails = forwardRef<StepHandle, EducationDetailsProps>(({ onSave
 
     const param = new FormData();
     param.append("document", file);
-    var response: any = await postData("trainee/educationdetail/uploadDocument", param, apiHeader(true, 0));
+    var response: any = await postData("trainee/educationdetail/uploadDocument", param, apiHeader(true, 2));
 
     if (
       String(response?.status) == "200" &&
@@ -248,7 +248,7 @@ const EducationDetails = forwardRef<StepHandle, EducationDetailsProps>(({ onSave
         })),
       };
 
-      var response: any = await postData("trainee/educationdetail/save", payload, apiHeader(false, 0));
+      var response: any = await postData("trainee/educationdetail/save", payload, apiHeader(false, 2));
 
       if (
         String(response?.status) == "200" &&

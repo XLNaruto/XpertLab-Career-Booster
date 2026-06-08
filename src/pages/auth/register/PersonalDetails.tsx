@@ -21,6 +21,8 @@ import {
   Eye,
   EyeOff,
   ChevronDown,
+  Camera,
+  X,
 } from "lucide-react";
 import {
   selectStyles,
@@ -56,6 +58,8 @@ const PersonalDetails = forwardRef<StepHandle, PersonalDetailsProps>(
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [prefixOpen, setPrefixOpen] = useState(false);
+    const [profilePreview, setProfilePreview] = useState<string | null>(null);
+    const profileFileRef = useRef<HTMLInputElement | null>(null);
     const [prefixList] = useState([
       { label: "Mr.", value: "Mr." },
       { label: "Ms.", value: "Ms." },
@@ -120,7 +124,7 @@ const PersonalDetails = forwardRef<StepHandle, PersonalDetailsProps>(
       const response: any = await postData(
         "trainee/personaldetail/get",
         param,
-        apiHeader(false, 0),
+        apiHeader(false, 2),
       );
 
       if (
@@ -131,6 +135,7 @@ const PersonalDetails = forwardRef<StepHandle, PersonalDetailsProps>(
         methods.reset({
           ...methods.getValues(),
           traineeId: String(data.traineeId ?? id),
+          profilePicture: data.profilePicture || null,
           prefix: data.prefix || "Mr.",
           firstName: data.firstName || "",
           middleName: data.middleName || "",
@@ -144,6 +149,7 @@ const PersonalDetails = forwardRef<StepHandle, PersonalDetailsProps>(
           password: "",
           confirmPassword: "",
         });
+        setProfilePreview(data.profilePicture || null);
       } else {
         toasterrormsg(response?.data?.message || "Something went wrong");
       }
@@ -200,6 +206,8 @@ const PersonalDetails = forwardRef<StepHandle, PersonalDetailsProps>(
           const v = result.data;
           const param = new FormData();
           if (values.traineeId) param.append("traineeId", values.traineeId);
+          if (v.profilePicture instanceof File)
+            param.append("profilePicture", v.profilePicture);
           param.append("prefix", v.prefix);
           param.append("firstName", v.firstName);
           param.append("middleName", v.middleName ?? "");
@@ -214,7 +222,7 @@ const PersonalDetails = forwardRef<StepHandle, PersonalDetailsProps>(
           const response: any = await postData(
             "trainee/personaldetail/save",
             param,
-            apiHeader(true, 0),
+            apiHeader(true, 2),
           );
 
           console.log("useImperativeHandle+++++++++", response);
@@ -239,6 +247,67 @@ const PersonalDetails = forwardRef<StepHandle, PersonalDetailsProps>(
 
     return (
       <div className="space-y-4">
+        <Controller
+          name="profilePicture"
+          control={control}
+          render={({ field }) => (
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <div className="w-20 h-20 rounded-full overflow-hidden bg-white/[0.45] border border-foreground/[0.09] flex items-center justify-center">
+                  {profilePreview ? (
+                    <img
+                      src={profilePreview}
+                      alt="Profile"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <User className="w-8 h-8 text-foreground/25" />
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => profileFileRef.current?.click()}
+                  className="absolute -bottom-1 -right-1 bg-primary text-white rounded-full p-1.5 shadow-md hover:bg-primary/90 transition-colors"
+                >
+                  <Camera className="w-3.5 h-3.5" />
+                </button>
+                {profilePreview && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      field.onChange(null);
+                      setProfilePreview(null);
+                      if (profileFileRef.current)
+                        profileFileRef.current.value = "";
+                    }}
+                    className="absolute -top-1 -right-1 bg-white text-foreground/60 border border-foreground/[0.12] rounded-full p-1 shadow-sm hover:text-foreground transition-colors"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+              <div>
+                <label className={labelClass}>Profile Picture</label>
+                <p className="text-xs text-foreground/40">
+                  JPG or PNG.
+                </p>
+              </div>
+              <input
+                ref={profileFileRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  field.onChange(file);
+                  setProfilePreview(URL.createObjectURL(file));
+                }}
+              />
+            </div>
+          )}
+        />
+
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className={labelClass}>
@@ -487,6 +556,7 @@ const PersonalDetails = forwardRef<StepHandle, PersonalDetailsProps>(
                 <input
                   {...register("userName")}
                   placeholder="Ex. mahidhoni7"
+                  autoComplete="off"
                   className={inputClass}
                 />
               </div>
@@ -508,6 +578,7 @@ const PersonalDetails = forwardRef<StepHandle, PersonalDetailsProps>(
                   {...register("password")}
                   placeholder="Ex. ••••••••"
                   type={showPassword ? "text" : "password"}
+                  autoComplete="new-password"
                   className={`${inputClass} !pr-10`}
                 />
                 <button
@@ -540,6 +611,7 @@ const PersonalDetails = forwardRef<StepHandle, PersonalDetailsProps>(
                   {...register("confirmPassword")}
                   placeholder="Ex. ••••••••"
                   type={showConfirmPassword ? "text" : "password"}
+                  autoComplete="new-password"
                   className={`${inputClass} !pr-10`}
                 />
                 <button

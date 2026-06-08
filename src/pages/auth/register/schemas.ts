@@ -13,6 +13,11 @@ const isValidPhone = (v?: string | null) => {
 
 export const personalDetailsSchema = z
   .object({
+    profilePicture: z
+      .union([z.instanceof(File), z.string()])
+      .nullable()
+      .optional(),
+
     prefix: z.string().trim().min(1, "Please Select Prefix"),
 
     firstName: z

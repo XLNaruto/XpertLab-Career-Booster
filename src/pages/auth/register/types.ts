@@ -27,6 +27,7 @@ export interface RegisterFormData {
   traineeId: string;
 
   // Step 1: Personal Details
+  profilePicture: File | string | null;
   prefix: string;
   firstName: string;
   middleName: string;

@@ -41,7 +41,7 @@ const LocationDetails = forwardRef<StepHandle, LocationDetailsProps>(
       var response: any = await postData(
         "master/state/list",
         {},
-        apiHeader(false, 0),
+        apiHeader(false, 2),
       );
 
       if (
@@ -74,7 +74,7 @@ const LocationDetails = forwardRef<StepHandle, LocationDetailsProps>(
       var response: any = await postData(
         "master/city/list",
         param,
-        apiHeader(false, 0),
+        apiHeader(false, 2),
       );
 
       if (
@@ -102,7 +102,7 @@ const LocationDetails = forwardRef<StepHandle, LocationDetailsProps>(
       const response: any = await postData(
         "trainee/personaldetail/get",
         param,
-        apiHeader(false, 0),
+        apiHeader(false, 2),
       );
 
       if (
@@ -181,7 +181,7 @@ const LocationDetails = forwardRef<StepHandle, LocationDetailsProps>(
           const response: any = await postData(
             "trainee/personaldetail/saveLocation",
             payload,
-            apiHeader(false, 0),
+            apiHeader(false, 2),
           );
 
           if (

@@ -57,7 +57,7 @@ const CourseDetails = forwardRef<StepHandle, CourseDetailsProps>(
       const response: any = await postData(
         "master/course/list",
         {},
-        apiHeader(false, 0),
+        apiHeader(false, 2),
       );
       if (
         String(response?.status) === "200" &&
@@ -79,7 +79,7 @@ const CourseDetails = forwardRef<StepHandle, CourseDetailsProps>(
       const response: any = await postData(
         "master/batch/list",
         {},
-        apiHeader(false, 0),
+        apiHeader(false, 2),
       );
       if (
         String(response?.status) === "200" &&
@@ -108,7 +108,7 @@ const CourseDetails = forwardRef<StepHandle, CourseDetailsProps>(
       const response: any = await postData(
         "master/timing/list",
         {},
-        apiHeader(false, 0),
+        apiHeader(false, 2),
       );
       if (
         String(response?.status) === "200" &&
@@ -131,7 +131,7 @@ const CourseDetails = forwardRef<StepHandle, CourseDetailsProps>(
       const response: any = await postData(
         "master/area/list",
         {},
-        apiHeader(false, 0),
+        apiHeader(false, 2),
       );
       if (
         String(response?.status) === "200" &&
@@ -153,7 +153,7 @@ const CourseDetails = forwardRef<StepHandle, CourseDetailsProps>(
       const response: any = await postData(
         "master/computer/list",
         {},
-        apiHeader(false, 0),
+        apiHeader(false, 2),
       );
       if (
         String(response?.status) === "200" &&
@@ -181,7 +181,7 @@ const CourseDetails = forwardRef<StepHandle, CourseDetailsProps>(
       const response: any = await postData(
         "trainee/coursedetail/getLatest",
         param,
-        apiHeader(false, 0),
+        apiHeader(false, 2),
       );
       if (
         String(response?.status) === "200" &&
@@ -284,7 +284,7 @@ const CourseDetails = forwardRef<StepHandle, CourseDetailsProps>(
           const response: any = await postData(
             "trainee/coursedetail/save",
             payload,
-            apiHeader(false, 0),
+            apiHeader(false, 2),
           );
 
           if (

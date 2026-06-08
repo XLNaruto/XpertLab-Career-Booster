@@ -109,7 +109,7 @@ const EducationDetails = forwardRef<
     var response: any = await postData(
       "master/board/list",
       {},
-      apiHeader(false, 0),
+      apiHeader(false, 2),
     );
     if (
       String(response?.status) == "200" &&
@@ -130,7 +130,7 @@ const EducationDetails = forwardRef<
     var response: any = await postData(
       "master/institute/list",
       {},
-      apiHeader(false, 0),
+      apiHeader(false, 2),
     );
     if (
       String(response?.status) == "200" &&
@@ -155,7 +155,7 @@ const EducationDetails = forwardRef<
   const educationListApiCall = async (id: string) => {
     const param = { traineeId: id };
     var response: any = await postData(
-      "trainee/educationdetail/list",
+      "private/trainee/educationdetail/list",
       param,
       apiHeader(false, 0),
     );
@@ -213,9 +213,9 @@ const EducationDetails = forwardRef<
     const param = new FormData();
     param.append("document", file);
     var response: any = await postData(
-      "trainee/educationdetail/uploadDocument",
+      "private/trainee/educationdetail/uploadDocument",
       param,
-      apiHeader(true, 0),
+      apiHeader(true, 2),
     );
 
     if (
@@ -313,9 +313,9 @@ const EducationDetails = forwardRef<
         };
 
         var response: any = await postData(
-          "trainee/educationdetail/save",
+          "private/trainee/educationdetail/save",
           payload,
-          apiHeader(false, 0),
+          apiHeader(false, 2),
         );
 
         if (

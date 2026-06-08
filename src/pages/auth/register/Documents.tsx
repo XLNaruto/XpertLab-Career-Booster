@@ -64,7 +64,7 @@ const Documents = forwardRef<StepHandle, DocumentsProps>(({ onSaved }, ref) => {
     const response: any = await postData(
       "master/traineedocument/list",
       {},
-      apiHeader(false, 0),
+      apiHeader(false, 2),
     );
     if (
       String(response?.status) === "200" &&
@@ -92,7 +92,7 @@ const Documents = forwardRef<StepHandle, DocumentsProps>(({ onSaved }, ref) => {
     const response: any = await postData(
       "trainee/documentdetail/list",
       param,
-      apiHeader(false, 0),
+      apiHeader(false, 2),
     );
     if (
       String(response?.status) === "200" &&
@@ -158,7 +158,7 @@ const Documents = forwardRef<StepHandle, DocumentsProps>(({ onSaved }, ref) => {
     const response: any = await postData(
       "trainee/documentdetail/uploadDocument",
       param,
-      apiHeader(true, 0),
+      apiHeader(true, 2),
     );
 
     if (
@@ -245,7 +245,7 @@ const Documents = forwardRef<StepHandle, DocumentsProps>(({ onSaved }, ref) => {
         const response: any = await postData(
           "trainee/documentdetail/save",
           payload,
-          apiHeader(false, 0),
+          apiHeader(false, 2),
         );
 
         if (

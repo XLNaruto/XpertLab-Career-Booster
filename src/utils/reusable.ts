@@ -58,167 +58,244 @@ export const AmountDisplay = (amount: any) => {
 };
 
 /**
- * Security key for AES encryption.
- * Should be set to a specific value.
+ * Converts Uint8Array to URL-safe Base64 string.
+ * Works in both Node.js and browser environments.
+ * @param {Uint8Array} bytes - The bytes to encode.
+ * @returns {string} - URL-safe Base64 string.
  */
-
-/**
- * Encrypts text using XOR + Base64.
- * @param {string} text - The plaintext to encrypt.
- * @returns {string} - Encrypted text (Base64 format).
- */
-export const encrypt = (text: any) => {
-  let encrypted = '';
-  for (let i = 0; i < text.length; i++) {
-    encrypted += String.fromCharCode(
-      text.charCodeAt(i) ^ Securitykey.charCodeAt(i % Securitykey.length)
-    );
+const toUrlSafeBase64 = (bytes:any) => {
+  let base64;
+  if (typeof Buffer !== 'undefined') {
+    // Node.js environment
+    base64 = Buffer.from(bytes).toString('base64');
+  } else {
+    // Browser environment
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    base64 = btoa(binary);
   }
-  return CryptoJS.enc.Base64.stringify(CryptoJS.enc.Latin1.parse(encrypted));
+  // Convert to URL-safe Base64: replace + with -, / with _, remove padding =
+  return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 };
 
 /**
- * Decrypts Base64 + XOR encrypted text.
- * @param {string} encryptedText - The encrypted text in Base64 format.
+ * Converts URL-safe Base64 string to Uint8Array.
+ * Works in both Node.js and browser environments.
+ * @param {string} base64 - URL-safe Base64 string.
+ * @returns {Uint8Array} - Decoded bytes.
+ */
+const fromUrlSafeBase64 = (base64:any) => {
+  // Convert from URL-safe Base64: replace - with +, _ with /, add padding
+  let standardBase64 = base64.replace(/-/g, '+').replace(/_/g, '/');
+  while (standardBase64.length % 4 !== 0) {
+    standardBase64 += '=';
+  }
+
+  let binary;
+  if (typeof Buffer !== 'undefined') {
+    // Node.js environment
+    binary = Buffer.from(standardBase64, 'base64').toString('binary');
+  } else {
+    // Browser environment
+    binary = atob(standardBase64);
+  }
+
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+};
+
+/**
+ * Encrypts text using XOR + URL-safe Base64.
+ * Handles all Unicode characters (UTF-8) and is URL/browser-friendly.
+ * @param {string} text - The plaintext to encrypt.
+ * @returns {string} - Encrypted text (URL-safe Base64 format).
+ */
+export const encrypt = (text:any) => {
+  const key = Securitykey || '';
+  // Convert text to UTF-8 bytes using TextEncoder (handles all Unicode)
+  const encoder = new TextEncoder();
+  const textBytes = encoder.encode(String(text));
+  const keyBytes = encoder.encode(key);
+
+  // XOR each byte with the key
+  const encrypted = new Uint8Array(textBytes.length);
+  for (let i = 0; i < textBytes.length; i++) {
+    encrypted[i] = textBytes[i] ^ keyBytes[i % keyBytes.length];
+  }
+
+  return toUrlSafeBase64(encrypted);
+};
+
+/**
+ * Decrypts URL-safe Base64 + XOR encrypted text.
+ * Handles all Unicode characters (UTF-8) and is URL/browser-friendly.
+ * @param {string} encryptedText - The encrypted text in URL-safe Base64 format.
  * @returns {string} - Decrypted plaintext.
  */
-export const decrypt = (encryptedText: any) => {
-  const decoded = CryptoJS.enc.Base64.parse(encryptedText).toString(CryptoJS.enc.Latin1);
-  let decrypted = '';
-  for (let i = 0; i < decoded.length; i++) {
-    decrypted += String.fromCharCode(
-      decoded.charCodeAt(i) ^ Securitykey.charCodeAt(i % Securitykey.length)
-    );
+export const decrypt = (encryptedText:any) => {
+  const key = Securitykey || '';
+  const encoder = new TextEncoder();
+  const keyBytes = encoder.encode(key);
+
+  // Decode URL-safe Base64 to bytes
+  const encryptedBytes = fromUrlSafeBase64(String(encryptedText));
+
+  // XOR each byte with the key to decrypt
+  const decrypted = new Uint8Array(encryptedBytes.length);
+  for (let i = 0; i < encryptedBytes.length; i++) {
+    decrypted[i] = encryptedBytes[i] ^ keyBytes[i % keyBytes.length];
   }
-  return decrypted;
+
+  // Convert bytes back to string using TextDecoder (handles all Unicode)
+  const decoder = new TextDecoder('utf-8');
+  return decoder.decode(decrypted);
 };
+
 /**
- * Function to recursively encrypt object properties based on encryption level.
- * Handles arrays within objects.
- * @param {object} obj - Object to encrypt
+ * Encrypts an object or array based on provided encryption levels.
+ * @param {object|Array} data - The object or array to encrypt
  * @param {object} keyLevel - Encryption level object with 'key' and 'value' properties
- * @returns {object} - Encrypted object
+ * @returns {object|Array} - Encrypted result
  */
-export const encryptObject = (obj: any, keyLevel: any) => {
-  const encryptedObject: any = {};
-  const isKeyEncrypted = keyLevel['key'];
-  const isValueEncrypted = keyLevel['value'];
-
-  for (const [key, value] of Object.entries(obj)) {
-    const encryptedKey = isKeyEncrypted ? encrypt(key) : key;
-
-    if (Array.isArray(value)) {
-      // Encrypt array elements
-      encryptedObject[encryptedKey] = encryptArrayOfObjects(value, keyLevel);
-    } else if (value instanceof Date) {
-      // Encrypt Date objects as strings
-      const encryptedValue = isValueEncrypted ? encrypt(value.toISOString()) : value.toISOString();
-      encryptedObject[encryptedKey] = encryptedValue;
-    } else if (typeof value === 'object' && value !== null) {
-      // Recursively encrypt nested objects
-      encryptedObject[encryptedKey] = encryptObject(value, keyLevel);
-    } else if (typeof value === 'string') {
-      // Encrypt string values
-      const encryptedValue = isValueEncrypted ? encrypt(value) : value;
-      encryptedObject[encryptedKey] = encryptedValue;
-    } else {
-      // Leave other values unchanged
-      encryptedObject[encryptedKey] = value;
-    }
-  }
-  return encryptedObject;
-};
-
-/**
- * Function to encrypt an array recursively based on encryption level.
- * @param {Array} arr - Array to encrypt
- * @param {object} keyLevel - Encryption level object with 'key' and 'value' properties
- * @returns {Array} - Encrypted array
- */
-export const encryptArrayOfObjects = (arr: any, keyLevel: any) => {
-  return arr.map((item: any) => {
-    if (Array.isArray(item)) {
-      // Recursively encrypt nested arrays
-      return encryptArrayOfObjects(item, keyLevel);
-    } else if (typeof item === 'object' && item !== null) {
-      // Encrypt objects in the array
-      return encryptObject(item, keyLevel);
-    } else if (typeof item === 'string' && keyLevel['value']) {
-      // Encrypt string items
-      return encrypt(item);
-    } else {
-      // Leave other values unchanged
-      return item;
-    }
-  });
-};
-
-/**
- * Function to decrypt an object recursively based on encryption level.
- * @param {object} obj - Encrypted object to decrypt
- * @param {{key: boolean, value: boolean}} keyLevel - Encryption level object with 'key' and 'value' properties
- * @returns {object} - Decrypted object
- */
-export const decryptObject = (obj: any, keyLevel: any) => {
-  const decryptedObject: any = {};
-  const isKeyEncrypted = keyLevel['key'];
-  const isValueEncrypted = keyLevel['value'];
-
-  for (const [key, value] of Object.entries(obj)) {
-    const decryptedKey = isKeyEncrypted ? decrypt(key) : key;
-
-    if (Array.isArray(value)) {
-      // Decrypt array elements
-      decryptedObject[decryptedKey] = decryptArrayOfObjects(value, keyLevel);
-    } else if (typeof value === 'object' && value !== null) {
-      // Recursively decrypt nested objects
-      decryptedObject[decryptedKey] = decryptObject(value, keyLevel);
-    } else if (typeof value === 'string') {
-      // Decrypt string values
-      decryptedObject[decryptedKey] = isValueEncrypted ? decrypt(value) : value;
-    } else {
-      // Leave other values unchanged
-      decryptedObject[decryptedKey] = value;
-    }
-  }
-
-  return decryptedObject;
-};
-
-/**
- * Function to decrypt an array recursively based on encryption level.
- * @param {Array} arr - Encrypted array to decrypt
- * @param {{key: boolean, value: boolean}} keyLevel - Encryption level object with 'key' and 'value' properties
- * @returns {Array} - Decrypted array
- */
-export const decryptArrayOfObjects = (arr: any, keyLevel: any) => {
-  return arr.map((item: any) => {
-    if (Array.isArray(item)) {
-      // Recursively decrypt nested arrays
-      return decryptArrayOfObjects(item, keyLevel);
-    } else if (typeof item === 'object' && item !== null) {
-      // Decrypt objects in the array
-      return decryptObject(item, keyLevel);
-    } else if (typeof item === 'string' && keyLevel['value']) {
-      // Decrypt string items
-      return decrypt(item);
-    } else {
-      // Leave other values unchanged
-      return item;
-    }
-  });
-};
-
 export const encryptData = (data: any, keyLevel: any) => {
-  if (Array.isArray(data)) return encryptArrayOfObjects(data, keyLevel);
-  if (data && typeof data === 'object') return encryptObject(data, keyLevel);
-  return data;
+  // If data is not an object/array, return as is.
+  if (data === null || typeof data !== "object") return data;
+
+  const { key: isKeyEncrypted, value: isValueEncrypted } = keyLevel;
+
+  // Create the root container depending on data type.
+  const root = Array.isArray(data) ? [] : {};
+  // Stack items: { orig: original data, copy: new container }
+  const stack = [{ orig: data, copy: root }];
+
+  while (stack.length) {
+    const { orig, copy }: any = stack.pop();
+
+    if (Array.isArray(orig)) {
+      // Process array elements.
+      for (let i = 0; i < orig.length; i++) {
+        const item = orig[i];
+        if (Array.isArray(item)) {
+          const newArr = [] as any;
+          copy[i] = newArr;
+          stack.push({ orig: item, copy: newArr });
+        } else if (item instanceof Date) {
+          copy[i] = isValueEncrypted
+            ? encrypt(item.toISOString())
+            : item.toISOString();
+        } else if (item !== null && typeof item === "object") {
+          const newObj = {};
+          copy[i] = newObj;
+          stack.push({ orig: item, copy: newObj });
+        } else if (typeof item === "string") {
+          copy[i] = isValueEncrypted ? encrypt(item) : item;
+        } else {
+          copy[i] = item;
+        }
+      }
+    } else {
+      // Process object properties.
+      for (const origKey in orig) {
+        if (Object.prototype.hasOwnProperty.call(orig, origKey)) {
+          // Encrypt the key if required.
+          const newKey = isKeyEncrypted ? encrypt(String(origKey)) : origKey;
+          const val = orig[origKey];
+
+          if (Array.isArray(val)) {
+            const newArr = [] as any;
+            copy[newKey] = newArr;
+            stack.push({ orig: val, copy: newArr });
+          } else if (val instanceof Date) {
+            copy[newKey] = isValueEncrypted
+              ? encrypt(val.toISOString())
+              : val.toISOString();
+          } else if (val !== null && typeof val === "object") {
+            const newObj = {};
+            copy[newKey] = newObj;
+            stack.push({ orig: val, copy: newObj });
+          } else if (typeof val === "string") {
+            copy[newKey] = isValueEncrypted ? encrypt(val) : val;
+          } else {
+            copy[newKey] = val;
+          }
+        }
+      }
+    }
+  }
+
+  return root;
 };
 
+/**
+ * Decrypts an object or array based on provided decryption levels.
+ * @param {object|Array} data - The encrypted object or array to decrypt
+ * @param {object} keyLevel - Decryption level object with 'key' and 'value' properties
+ * @returns {object|Array} - Decrypted result
+ */
 export const decryptData = (data: any, keyLevel: any) => {
-  if (Array.isArray(data)) return decryptArrayOfObjects(data, keyLevel);
-  if (data && typeof data === 'object') return decryptObject(data, keyLevel);
-  return data;
+  // If data is not an object/array, return as is.
+  if (data === null || typeof data !== "object") return data;
+
+  const { key: isKeyEncrypted, value: isValueEncrypted } = keyLevel;
+
+  // Create the root container depending on data type.
+  const root = Array.isArray(data) ? [] : {};
+  // Stack items: { orig: encrypted data, copy: new container }
+  const stack = [{ orig: data, copy: root }];
+
+  while (stack.length) {
+    const { orig, copy }: any = stack.pop();
+
+    if (Array.isArray(orig)) {
+      // Process array elements.
+      for (let i = 0; i < orig.length; i++) {
+        const item = orig[i];
+        if (Array.isArray(item)) {
+          const newArr = [] as any;
+          copy[i] = newArr;
+          stack.push({ orig: item, copy: newArr });
+        } else if (typeof item === "string") {
+          copy[i] = isValueEncrypted ? decrypt(item) : item;
+        } else if (item !== null && typeof item === "object") {
+          const newObj = {};
+          copy[i] = newObj;
+          stack.push({ orig: item, copy: newObj });
+        } else {
+          copy[i] = item;
+        }
+      }
+    } else {
+      // Process object properties.
+      for (const origKey in orig) {
+        if (Object.prototype.hasOwnProperty.call(orig, origKey)) {
+          // Decrypt the key if required.
+          const newKey = isKeyEncrypted ? decrypt(String(origKey)) : origKey;
+          const val = orig[origKey];
+
+          if (Array.isArray(val)) {
+            const newArr = [] as any;
+            copy[newKey] = newArr;
+            stack.push({ orig: val, copy: newArr });
+          } else if (typeof val === "string") {
+            copy[newKey] = isValueEncrypted ? decrypt(val) : val;
+          } else if (val !== null && typeof val === "object") {
+            const newObj = {};
+            copy[newKey] = newObj;
+            stack.push({ orig: val, copy: newObj });
+          } else {
+            copy[newKey] = val;
+          }
+        }
+      }
+    }
+  }
+
+  return root;
 };
 
 // Encrypt an object by serializing it to a JSON string
@@ -237,16 +314,15 @@ export const encryptUrlData = (data: Object) => {
   try {
     return encodeURIComponent(encryptState(data));
   } catch (error) {
-    console.log('URL Encryption Error', error);
+    console.error("URL Encryption Error", error);
     return;
   }
 };
-
 export const decryptUrlData = (data: any) => {
   try {
     return data ? decryptState(decodeURIComponent(data)) : {};
   } catch (error) {
-    console.error('Failed to decrypt URL data:', error);
+    console.error("Failed to decrypt URL data:", error);
     return {}; // Fallback in case of error
   }
 };

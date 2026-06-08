@@ -3,7 +3,8 @@ import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { LogOut } from "lucide-react";
 import { motion, useScroll, useTransform } from "motion/react";
 import AnimatedBackground from "@/components/AnimatedBackground";
-import { toAbsoluteUrl } from "@/utils/reusable";
+import { getEncodedCookie, toAbsoluteUrl } from "@/utils/reusable";
+import { apiHeader, postData } from "@/utils/ApiHelper";
 import { clearCookies } from "@/utils/CookieComponent";
 import {
   AlertDialog,
@@ -30,6 +31,7 @@ const MainLayout = () => {
   const headerShadow = useTransform(scrollY, [0, 50], [0, 1]);
 
   const [logoutOpen, setLogoutOpen] = useState(false);
+  const [profile, setProfile] = useState({ firstName: "", profilePicture: "" });
 
   const handleLogout = () => {
     clearCookies();
@@ -37,9 +39,35 @@ const MainLayout = () => {
     navigate("/login");
   };
 
+  const fetchProfile = async () => {
+    const traineeId = getEncodedCookie("traineeId");
+    if (!traineeId) return;
+    const response: any = await postData(
+      "private/trainee/personaldetail/get",
+      { traineeId },
+      apiHeader(false, 0),
+    );
+    if (
+      String(response?.status) === "200" &&
+      String(response.data?.status) === "200"
+    ) {
+      const data = response.data.data || {};
+      setProfile({
+        firstName: data.firstName || "",
+        profilePicture: data.profilePicture || "",
+      });
+    }
+  };
+
+  useEffect(() => {
+    fetchProfile();
+  }, []);
+
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [location.pathname]);
+
+  const initial = profile.firstName ? profile.firstName.charAt(0).toUpperCase() : "";
 
   const isActive = (path: string) => location.pathname.startsWith(path);
 
@@ -118,9 +146,17 @@ const MainLayout = () => {
               <motion.div
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.9 }}
-                className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 border-2 border-white shadow-[var(--shadow-sm)] flex items-center justify-center text-sm font-bold text-primary hover:ring-2 hover:ring-primary/30 transition-all"
+                className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 border-2 border-white shadow-[var(--shadow-sm)] flex items-center justify-center text-sm font-bold text-primary hover:ring-2 hover:ring-primary/30 transition-all overflow-hidden"
               >
-                S
+                {profile.profilePicture ? (
+                  <img
+                    src={profile.profilePicture}
+                    alt={profile.firstName || "Profile"}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  initial
+                )}
               </motion.div>
             </Link>
             <motion.div

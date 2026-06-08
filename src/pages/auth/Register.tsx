@@ -82,6 +82,7 @@ const Register = () => {
     reValidateMode: "onSubmit",
     defaultValues: {
       traineeId: "",
+      profilePicture: null,
       prefix: "Mr.", firstName: "", middleName: "", lastName: "",
       gender: "", birthDate: null, email: "",
       mobile1: "", mobile2: "",
@@ -110,7 +111,7 @@ const Register = () => {
       const response: any = await postData(
         "trainee/personaldetail/get",
         { traineeId: initialTraineeId },
-        apiHeader(false, 0)
+        apiHeader(false, 2)
       );
       if (String(response?.status) === "200" && String(response.data?.status) === "200") {
         const data = response.data.data || {};
