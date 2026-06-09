@@ -15,6 +15,7 @@ export interface Education {
   boardId: string;
   instituteId: string;
   passingYear: string;
+  academicYear: string;
   percentage: string;
   isCompleted: string;
   document: string;

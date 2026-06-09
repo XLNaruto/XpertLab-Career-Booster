@@ -151,6 +151,7 @@ export const educationDetailsSchema = z
           boardId: z.string().trim(),
           instituteId: z.string().trim(),
           passingYear: z.string().optional().default(""),
+          academicYear: z.string().optional().default(""),
           percentage: z.string().optional().default(""),
           isCompleted: z.string(),
           document: z.string().optional().default(""),
@@ -176,8 +177,11 @@ export const educationDetailsSchema = z
       if (!isSscOrHsc && !e.education) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["educations", idx, "education"], message: "Education is required" });
       }
-      if (!e.passingYear) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["educations", idx, "passingYear"], message: isCompleted ? "Passing Year is required" : "Academic Year is required" });
+      if (isCompleted && !e.passingYear) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["educations", idx, "passingYear"], message: "Passing Year is required" });
+      }
+      if (!isCompleted && !e.academicYear) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["educations", idx, "academicYear"], message: "Academic Year is required" });
       }
       if (isCompleted) {
         if (!e.percentage) {

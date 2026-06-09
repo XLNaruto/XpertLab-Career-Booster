@@ -8,7 +8,7 @@ interface ApprovalPopupProps {
   tutorName?: string;
 }
 
-const ApprovalPopup = ({ open, onClose, exerciseTitle, tutorName = "Mr. Sharma" }: ApprovalPopupProps) => {
+const ApprovalPopup = ({ open, onClose, exerciseTitle, tutorName = "your tutor" }: ApprovalPopupProps) => {
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
       <DialogContent className="max-w-[460px] p-0 border-0 bg-transparent shadow-none overflow-visible [&>button]:hidden">

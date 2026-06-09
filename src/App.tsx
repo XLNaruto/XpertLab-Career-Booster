@@ -7,8 +7,8 @@ import Welcome from "./pages/welcome/Welcome";
 import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
 import Dashboard from "./pages/dashboard/Dashboard";
-import ExerciseList from "./pages/exercise/ExerciseList";
-import SubExerciseList from "./pages/exercise/SubExerciseList";
+import ExerciseList from "./pages/exercise/ExerciseTechnologyList";
+import SubExerciseList from "./pages/exercise/ExerciseList";
 import ExerciseDetail from "./pages/exercise/ExerciseDetail";
 import Feedback from "./pages/feedeback/Feedback";
 import Exam from "./pages/exam/Exam";
@@ -40,8 +40,8 @@ const App = () => (
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/exercises" element={<Navigate to="/exercises/technology" replace />} />
               <Route path="/exercises/technology" element={<ExerciseList />} />
-              <Route path="/exercises/list/:techId" element={<SubExerciseList />} />
-              <Route path="/exercises/details/:exerciseId" element={<ExerciseDetail />} />
+              <Route path="/exercises/list" element={<SubExerciseList />} />
+              <Route path="/exercises/details" element={<ExerciseDetail />} />
               <Route path="/feedback" element={<Feedback />} />
               <Route path="/exam" element={<Exam />} />
               <Route path="/profile" element={<MyProfile />} />

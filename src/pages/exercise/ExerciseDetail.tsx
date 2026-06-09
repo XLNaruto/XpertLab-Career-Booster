@@ -1,97 +1,127 @@
-import React, { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import { apiHeader, postData } from "@/utils/ApiHelper";
+import { decryptUrlData, encryptUrlData, toasterrormsg, toastsuccessmsg } from "@/utils/reusable";
 import ApprovalPopup from "@/components/ApprovalPopup";
-import { ChevronRight, Send, ArrowLeft, CheckCircle2, Award } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { ChevronRight, Send, ArrowLeft, CheckCircle2, Award, Clock, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 const Lightbox = React.lazy(() => import("yet-another-react-lightbox"));
 import Zoom from "yet-another-react-lightbox/plugins/zoom";
 import "yet-another-react-lightbox/styles.css";
 
-const allExercises: Record<string, {
-  id: string; title: string; subtitle: string; tech: string; techName: string;
-  images: string[]; instructions: string[];
-}> = {
-  "html-1": {
-    id: "html-1", title: "Semantic HTML Structure", tech: "html", techName: "HTML5",
-    subtitle: "Learn to use semantic HTML5 tags for better accessibility, SEO, and code readability. This exercise covers the proper usage of header, nav, main, article, section, aside, and footer elements.",
-    images: [
-      "https://images.unsplash.com/photo-1621839673705-6617adf9e890?w=600&h=400&fit=crop",
-      "https://images.unsplash.com/photo-1542831371-29b0f74f9713?w=600&h=400&fit=crop",
-      "https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=600&h=400&fit=crop",
-      "https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=600&h=400&fit=crop",
-    ],
-    instructions: [
-      "Start by creating a basic HTML5 boilerplate with proper DOCTYPE, html, head, and body elements.",
-      "Replace all generic div elements with appropriate semantic tags such as <header>, <nav>, <main>, <article>, <section>, <aside>, and <footer>.",
-      "Ensure each page section has a clear hierarchy using heading tags (h1-h6) in a logical order.",
-      "Add ARIA landmarks and roles where semantic tags alone aren't sufficient for accessibility.",
-      "Validate your HTML using the W3C Markup Validation Service and fix any errors or warnings.",
-      "Test your page with a screen reader to verify the semantic structure is properly interpreted.",
-    ],
-  },
-  "html-2": {
-    id: "html-2", title: "HTML Forms & Validation", tech: "html", techName: "HTML5",
-    subtitle: "Build complex, accessible forms using native HTML5 validation attributes, custom validation patterns, and proper form semantics for an optimal user experience.",
-    images: [
-      "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=600&h=400&fit=crop",
-      "https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=600&h=400&fit=crop",
-      "https://images.unsplash.com/photo-1504639725590-34d0984388bd?w=600&h=400&fit=crop",
-    ],
-    instructions: [
-      "Create a multi-section registration form with fieldsets and legends for logical grouping.",
-      "Implement required, pattern, min/max, and custom validity constraints on form fields.",
-      "Style validation states using CSS :valid, :invalid, and :focus pseudo-classes.",
-      "Add accessible labels, placeholders, and error messages to every input field.",
-      "Test form submission and validation across different browsers.",
-    ],
-  },
-  "html-3": {
-    id: "html-3", title: "HTML5 Canvas Drawing", tech: "html", techName: "HTML5",
-    subtitle: "Create interactive graphics and animations using the HTML5 Canvas API. Learn to draw shapes, apply transformations, and build simple games.",
-    images: [
-      "https://images.unsplash.com/photo-1550439062-609e1531270e?w=600&h=400&fit=crop",
-      "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=600&h=400&fit=crop",
-      "https://images.unsplash.com/photo-1487058792275-0ad4aaf24ca7?w=600&h=400&fit=crop",
-    ],
-    instructions: [
-      "Set up a responsive canvas element with proper sizing and pixel ratio handling.",
-      "Draw basic shapes: rectangles, circles, lines, and paths using the Canvas 2D context.",
-      "Implement transformations: translate, rotate, and scale for complex compositions.",
-      "Create an animation loop using requestAnimationFrame for smooth 60fps animations.",
-      "Add mouse/touch interaction to make the canvas drawings interactive.",
-      "Build a simple particle system or mini-game as a final project.",
-    ],
-  },
-};
-
-const fallbackExercise = {
-  id: "unknown", title: "Exercise", subtitle: "This exercise covers fundamental concepts with hands-on practice and real-world examples.", tech: "html", techName: "General",
-  images: [
-    "https://images.unsplash.com/photo-1542831371-29b0f74f9713?w=600&h=400&fit=crop",
-    "https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=600&h=400&fit=crop",
-    "https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=600&h=400&fit=crop",
-  ],
-  instructions: [
-    "Read through the provided documentation and reference materials.",
-    "Set up your development environment with the required tools.",
-    "Follow the step-by-step guide to complete each section of the exercise.",
-    "Test your implementation thoroughly and fix any issues.",
-    "Submit your completed work for review and approval.",
-  ],
+// Shape of the exercise detail API response
+type ExerciseDetailData = {
+  course: {
+    traineecourseId: string;
+    coursedurationId: string;
+    courseId: string;
+    courseName: string;
+  } | null;
+  technology: {
+    technologyId: string;
+    name: string;
+    learningOrder: number;
+  } | null;
+  exercise: {
+    trainingexerciseId: string;
+    technologyId: string;
+    name: string;
+    image: string;
+    instruction: string;
+    exerciseSpecificImages: string | string[];
+    order: number;
+    requestStatus: string;
+  } | null;
 };
 
 const ExerciseDetail = () => {
-  const { exerciseId } = useParams<{ exerciseId: string }>();
+  const [searchParams] = useSearchParams();
+  const { trainingexerciseId = "", technologyId = "", name = "" } = decryptUrlData(searchParams.get("data"));
   const [activeImage, setActiveImage] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
-  const [requestSent, setRequestSent] = useState(false);
+  const [requestStatus, setRequestStatus] = useState("NOT_SENT");
+  const [requesting, setRequesting] = useState(false);
   const [showApproval, setShowApproval] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [data, setData] = useState<ExerciseDetailData | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const exercise = allExercises[exerciseId || ""] || {
-    ...fallbackExercise,
-    id: exerciseId,
-    title: exerciseId?.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) || "Exercise",
+  const exerciseDetailApiCall = async () => {
+    setLoading(true);
+    const response: any = await postData(
+      "private/trainee/exercise/detail",
+      { trainingexerciseId },
+      apiHeader(false, 0)
+    );
+    if (
+      String(response?.status) === "200" &&
+      String(response.data?.status) === "200"
+    ) {
+      const d: ExerciseDetailData = response.data.data || {};
+      setData(d);
+      setRequestStatus(d.exercise?.requestStatus || "NOT_SENT");
+    } else {
+      toasterrormsg(response?.data?.message || "Something went wrong");
+    }
+    setLoading(false);
   };
+
+  const sendRequestApiCall = async () => {
+    setRequesting(true);
+    const response: any = await postData(
+      "private/trainee/exercise/request",
+      { trainingexerciseId },
+      apiHeader(false, 2)
+    );
+    if (
+      String(response?.status) === "200" &&
+      String(response.data?.status) === "200"
+    ) {
+      setRequestStatus("PENDING");
+      toastsuccessmsg(response?.data?.message || "Request sent for approval");
+    } else {
+      toasterrormsg(response?.data?.message || "Something went wrong");
+    }
+    setRequesting(false);
+  };
+
+  useEffect(() => {
+    if (trainingexerciseId) exerciseDetailApiCall();
+  }, [trainingexerciseId]);
+
+  const ex = data?.exercise;
+  const title = ex?.name || name || "Exercise";
+  const techName = data?.technology?.name || "";
+
+  // Back link to the exercise list for this technology, matching ExerciseList's data shape
+  const backToListUrl = `/exercises/list?data=${encryptUrlData({
+    technologyId,
+    name: techName || name,
+  })}`;
+  const instruction = ex?.instruction || "";
+  const images = [ex?.image]
+    .map((s) => (s || "").trim())
+    .filter(Boolean);
+
+  const isPending = requestStatus === "PENDING";
+  const isApproved = requestStatus === "APPROVED";
+  const isNotSent = !isPending && !isApproved;
+
+  const statusCopy = isApproved
+    ? { title: "You're approved!", desc: "Your tutor approved this exercise. You can begin working on it now." }
+    : isPending
+    ? { title: "Awaiting approval", desc: "Your request has been sent. Your tutor will review it shortly." }
+    : { title: "Ready to start?", desc: "Send a request to your tutor for approval. Once approved, you can begin working on this exercise." };
 
   const openLightbox = (idx: number) => {
     setActiveImage(idx);
@@ -100,7 +130,27 @@ const ExerciseDetail = () => {
 
   return (
     <>
-      <ApprovalPopup open={showApproval} onClose={() => setShowApproval(false)} exerciseTitle={exercise.title} />
+      <ApprovalPopup open={showApproval} onClose={() => setShowApproval(false)} exerciseTitle={title} />
+
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Send request for approval?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Your tutor will be notified to review this exercise. You can't undo this once it's sent.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => sendRequestApiCall()}
+              className="bg-gradient-to-br from-primary to-primary-light text-primary-foreground hover:opacity-90"
+            >
+              Send Request
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Lightbox */}
       {lightboxOpen && (
@@ -109,7 +159,7 @@ const ExerciseDetail = () => {
             open={lightboxOpen}
             close={() => setLightboxOpen(false)}
             index={activeImage}
-            slides={exercise.images.map((src) => ({ src }))}
+            slides={images.map((src) => ({ src }))}
             plugins={[Zoom]}
             on={{ view: ({ index }: { index: number }) => setActiveImage(index) }}
           />
@@ -128,7 +178,7 @@ const ExerciseDetail = () => {
           <motion.span initial={{ opacity: 0, scale: 0 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2 }}>
             <ChevronRight className="w-3.5 h-3.5" />
           </motion.span>
-          <Link to="/exercises/technology" className="hover:text-foreground transition-colors">Exercises</Link>
+          <Link to={backToListUrl} className="hover:text-foreground transition-colors">{techName ? `${techName} Exercises` : "Exercises"}</Link>
           <motion.span initial={{ opacity: 0, scale: 0 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.3 }}>
             <ChevronRight className="w-3.5 h-3.5" />
           </motion.span>
@@ -138,45 +188,72 @@ const ExerciseDetail = () => {
             transition={{ delay: 0.35, duration: 0.4 }}
             className="text-foreground font-medium"
           >
-            {exercise.title}
+            {title}
           </motion.span>
         </motion.div>
 
-        {/* Back Button */}
-        <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.15, duration: 0.4 }}>
-          <motion.div whileHover={{ x: -4 }} transition={{ type: "spring", stiffness: 400, damping: 20 }}>
-            <Link to="/exercises/technology" className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground mb-7 transition-colors">
-              <ArrowLeft className="w-4 h-4" /> Back to Exercises
-            </Link>
-          </motion.div>
-        </motion.div>
-
-        {/* Title & Subtitle */}
+        {/* Title & Subtitle + Back Button */}
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
-          className="mb-8 max-w-3xl"
+          className="mb-8 flex items-start justify-between gap-4"
         >
-          <motion.h1
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.25 }}
-            className="text-[30px] font-bold text-foreground mb-2"
+          <div className="max-w-3xl">
+            <motion.h1
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.25 }}
+              className="text-[30px] font-bold text-foreground mb-2"
+            >
+              {title}
+            </motion.h1>
+            {(techName || data?.course?.courseName) && (
+              <motion.p
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.35 }}
+                className="text-[15px] text-muted-foreground leading-relaxed"
+              >
+                {[techName, data?.course?.courseName].filter(Boolean).join(" · ")}
+              </motion.p>
+            )}
+          </div>
+          <Link
+            to={backToListUrl}
+            className="shrink-0 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-muted-foreground border border-foreground/[0.15] hover:border-foreground/[0.3] hover:text-foreground hover:bg-white/[0.5] transition-all duration-200"
           >
-            {exercise.title}
-          </motion.h1>
-          <motion.p
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.35 }}
-            className="text-[15px] text-muted-foreground leading-relaxed"
-          >
-            {exercise.subtitle}
-          </motion.p>
+            <ArrowLeft className="w-4 h-4" /> Back to Exercises
+          </Link>
         </motion.div>
 
-        {/* Instructions (70%) + Media gallery (30%) */}
+        {loading ? (
+          // Skeleton while the exercise detail loads
+          <div className="grid grid-cols-1 lg:grid-cols-[6fr_4fr] xl:grid-cols-[7fr_3fr] gap-6 mb-8">
+            <div className="space-y-5">
+              <div className="bg-white/[0.6] border border-white/[0.88] rounded-2xl p-7 backdrop-blur-[20px] shadow-[var(--shadow-sm)] animate-pulse">
+                <div className="h-5 w-32 rounded bg-foreground/10 mb-6" />
+                <div className="space-y-3">
+                  <div className="h-3 w-full rounded bg-foreground/[0.07]" />
+                  <div className="h-3 w-11/12 rounded bg-foreground/[0.07]" />
+                  <div className="h-3 w-3/4 rounded bg-foreground/[0.07]" />
+                  <div className="h-3 w-5/6 rounded bg-foreground/[0.07]" />
+                </div>
+              </div>
+              <div className="bg-white/[0.6] border border-white/[0.88] rounded-2xl p-5 backdrop-blur-[20px] shadow-[var(--shadow-sm)] animate-pulse">
+                <div className="h-4 w-28 rounded bg-foreground/10 mb-3" />
+                <div className="h-3 w-full rounded bg-foreground/[0.07] mb-5" />
+                <div className="h-12 w-full rounded-xl bg-foreground/10" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2.5 self-start">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="rounded-xl bg-foreground/[0.07] animate-pulse" style={{ aspectRatio: "1 / 1" }} />
+              ))}
+            </div>
+          </div>
+        ) : (
+        /* Instructions (70%) + Media gallery (30%) */
         <div className="grid grid-cols-1 lg:grid-cols-[6fr_4fr] xl:grid-cols-[7fr_3fr] gap-6 mb-8">
           {/* Left 70%: Instructions + Ready to start */}
           <div className="space-y-5">
@@ -195,33 +272,14 @@ const ExerciseDetail = () => {
               >
                 Instructions
               </motion.h2>
-              <div className="space-y-5">
-                {exercise.instructions.map((instruction, i) => (
-                  <motion.div
-                    key={i}
-                    initial={{ opacity: 0, x: -25, y: 5 }}
-                    animate={{ opacity: 1, x: 0, y: 0 }}
-                    transition={{
-                      type: "spring",
-                      stiffness: 300,
-                      damping: 24,
-                      delay: 0.45 + i * 0.08,
-                    }}
-                    whileHover={{ x: 6 }}
-                    className="flex gap-4 group cursor-default"
-                  >
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ duration: 0.4, delay: 0.5 + i * 0.08 }}
-                      className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-primary-light flex items-center justify-center text-white text-xs font-bold shrink-0 shadow-sm group-hover:scale-110 group-hover:shadow-md transition-all duration-200"
-                    >
-                      {String(i + 1).padStart(2, "0")}
-                    </motion.div>
-                    <p className="text-[13.5px] text-muted-foreground leading-relaxed pt-1.5 group-hover:text-foreground transition-colors duration-200">{instruction}</p>
-                  </motion.div>
-                ))}
-              </div>
+              {instruction ? (
+                <div
+                  className="text-[13.5px] text-muted-foreground leading-relaxed prose prose-sm max-w-none [&_p]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:my-1 [&_strong]:text-foreground"
+                  dangerouslySetInnerHTML={{ __html: instruction }}
+                />
+              ) : (
+                <p className="text-[13.5px] text-muted-foreground">No instructions provided for this exercise.</p>
+              )}
             </motion.div>
 
             {/* Send Request Action */}
@@ -237,7 +295,7 @@ const ExerciseDetail = () => {
                   transition={{ duration: 0.4, delay: 0.6 }}
                   className="text-base font-bold text-foreground mb-2"
                 >
-                  Ready to start?
+                  {statusCopy.title}
                 </motion.h3>
                 <motion.p
                   initial={{ opacity: 0 }}
@@ -245,39 +303,40 @@ const ExerciseDetail = () => {
                   transition={{ duration: 0.4, delay: 0.65 }}
                   className="text-[13px] text-muted-foreground mb-5 leading-relaxed"
                 >
-                  Send a request to your tutor for approval. Once approved, you can begin working on this exercise.
+                  {statusCopy.desc}
                 </motion.p>
 
                 <motion.button
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.4, delay: 0.7 }}
-                  whileHover={!requestSent ? { scale: 1.02, y: -2 } : {}}
-                  whileTap={!requestSent ? { scale: 0.98 } : {}}
-                  onClick={() => setRequestSent(true)}
-                  disabled={requestSent}
+                  whileHover={isNotSent && !requesting ? { scale: 1.02, y: -2 } : {}}
+                  whileTap={isNotSent && !requesting ? { scale: 0.98 } : {}}
+                  onClick={() => isNotSent && !requesting && setConfirmOpen(true)}
+                  disabled={!isNotSent || requesting}
                   className={`w-full py-3.5 rounded-xl text-sm font-bold transition-all duration-300 flex items-center justify-center gap-2 ${
-                    requestSent
-                      ? "bg-green-500 text-white shadow-[0_8px_28px_hsl(142_70%_45%/0.3)]"
-                      : "bg-gradient-to-br from-primary to-primary-light text-primary-foreground shadow-[var(--shadow-primary)] hover:shadow-[0_12px_36px_hsl(342_80%_53%/0.42)]"
+                    isApproved
+                      ? "bg-green-500 text-white shadow-[0_8px_28px_hsl(142_70%_45%/0.3)] cursor-default"
+                      : isPending
+                      ? "bg-amber-400/90 text-amber-950 shadow-[0_8px_28px_hsl(38_92%_50%/0.3)] cursor-default"
+                      : "bg-gradient-to-br from-primary to-primary-light text-primary-foreground shadow-[var(--shadow-primary)] hover:shadow-[0_12px_36px_hsl(342_80%_53%/0.42)] disabled:opacity-70"
                   }`}
                 >
                   <AnimatePresence mode="wait">
-                    {requestSent ? (
-                      <motion.span
-                        key="sent"
-                        initial={{ opacity: 0, scale: 0.5 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        className="flex items-center gap-2"
-                      >
-                        <CheckCircle2 className="w-4 h-4" /> Request Sent
+                    {isApproved ? (
+                      <motion.span key="approved" initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4" /> Approved
+                      </motion.span>
+                    ) : isPending ? (
+                      <motion.span key="pending" initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} className="flex items-center gap-2">
+                        <Clock className="w-4 h-4" /> Approval Pending
+                      </motion.span>
+                    ) : requesting ? (
+                      <motion.span key="sending" initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} className="flex items-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin" /> Sending…
                       </motion.span>
                     ) : (
-                      <motion.span
-                        key="send"
-                        exit={{ opacity: 0, scale: 0.5 }}
-                        className="flex items-center gap-2"
-                      >
+                      <motion.span key="send" exit={{ opacity: 0, scale: 0.5 }} className="flex items-center gap-2">
                         <Send className="w-4 h-4" /> Send Request for Approval
                       </motion.span>
                     )}
@@ -285,7 +344,7 @@ const ExerciseDetail = () => {
                 </motion.button>
 
                 <AnimatePresence>
-                  {requestSent && (
+                  {isApproved && (
                     <motion.button
                       initial={{ opacity: 0, y: 15, height: 0, marginTop: 0 }}
                       animate={{ opacity: 1, y: 0, height: "auto", marginTop: 12 }}
@@ -305,27 +364,28 @@ const ExerciseDetail = () => {
           </div>
 
           {/* Right 30%: Media gallery (2x2 square grid) */}
-          {exercise.images.length > 0 && (
+          {images.length > 0 && (
             <motion.div
               initial={{ opacity: 0, y: 30, scale: 0.97 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               transition={{ duration: 0.6, delay: 0.35, ease: [0.22, 1, 0.36, 1] }}
               className="grid grid-cols-2 gap-2.5 self-start"
             >
-              {exercise.images.slice(0, 4).map((src, i) => {
-                const isLast = i === 3 && exercise.images.length > 4;
+              {images.slice(0, 4).map((src, i) => {
+                const isLast = i === 3 && images.length > 4;
+                const isSingle = images.length === 1;
                 return (
                   <motion.div
                     key={i}
                     whileHover={{ scale: 0.985 }}
                     transition={{ type: "spring", stiffness: 300, damping: 22 }}
                     onClick={() => openLightbox(i)}
-                    className="relative overflow-hidden rounded-xl cursor-pointer bg-white/[0.4] border border-white/[0.7]"
+                    className={`relative overflow-hidden rounded-xl cursor-pointer bg-white/[0.4] border border-white/[0.7] ${isSingle ? "col-span-2" : ""}`}
                     style={{ aspectRatio: "1 / 1" }}
                   >
                     <img
                       src={src}
-                      alt={`${exercise.title} - Image ${i + 1}`}
+                      alt={`${title} - Image ${i + 1}`}
                       loading="lazy"
                       className="absolute inset-0 w-full h-full object-cover"
                       onError={(e) => {
@@ -340,7 +400,7 @@ const ExerciseDetail = () => {
                           backdropFilter: "blur(2px)",
                         }}
                       >
-                        +{exercise.images.length - 4}
+                        +{images.length - 4}
                       </div>
                     )}
                   </motion.div>
@@ -349,6 +409,7 @@ const ExerciseDetail = () => {
             </motion.div>
           )}
         </div>
+        )}
       </div>
     </>
   );

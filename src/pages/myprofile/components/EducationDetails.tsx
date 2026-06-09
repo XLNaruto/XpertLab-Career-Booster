@@ -46,21 +46,13 @@ const educationTypeList: Option[] = [
   { value: "SSC", label: "SSC" },
   { value: "HSC", label: "HSC" },
   { value: "DIPLOMA", label: "Diploma" },
-  { value: "BACHELOR", label: "Bachelor" },
-  { value: "MASTER", label: "Master" },
+  { value: "BACHELOR DEGREE", label: "Bachelor Degree" },
+  { value: "MASTER DEGREE", label: "Master Degree" },
   { value: "PHD", label: "PhD" },
 ];
-
 const FILE_TYPES = ["JPG", "JPEG", "PNG", "GIF", "PDF"];
 
-// "YYYY-MM" (form state) <-> "M-YYYY" (API format)
-const toApiYearMonth = (v: string) => {
-  if (!v) return "";
-  const [y, m] = v.split("-");
-  if (!y || !m) return v;
-  return `${parseInt(m, 10)}-${y}`;
-};
-
+// Year-month is stored and sent as "YYYY-MM". fromApiYearMonth also accepts legacy "M-YYYY".
 const fromApiYearMonth = (v: string) => {
   if (!v) return "";
   if (/^\d{4}-\d{2}$/.test(v)) return v;
@@ -171,6 +163,7 @@ const EducationDetails = forwardRef<
           traineeeducationdetailId: String(item.traineeeducationdetailId ?? ""),
           educationType: item.educationType ?? "",
           passingYear: fromApiYearMonth(item.passingYear ?? ""),
+          academicYear: fromApiYearMonth(item.academicYear ?? ""),
           education: item.education ?? "",
           boardId: item.boardId ? String(item.boardId) : "",
           instituteId: item.instituteId ? String(item.instituteId) : "",
@@ -240,6 +233,7 @@ const EducationDetails = forwardRef<
 
   const resetRowOnTypeChange = (index: number) => {
     methods.setValue(`educations.${index}.passingYear`, "");
+    methods.setValue(`educations.${index}.academicYear`, "");
     methods.setValue(`educations.${index}.education`, "");
     methods.setValue(`educations.${index}.boardId`, "");
     methods.setValue(`educations.${index}.instituteId`, "");
@@ -251,6 +245,7 @@ const EducationDetails = forwardRef<
 
   const resetRowOnPursuingChange = (index: number) => {
     methods.setValue(`educations.${index}.passingYear`, "");
+    methods.setValue(`educations.${index}.academicYear`, "");
     methods.setValue(`educations.${index}.percentage`, "");
     methods.setValue(`educations.${index}.document`, "");
     methods.setValue(`educations.${index}.url`, "");
@@ -302,7 +297,8 @@ const EducationDetails = forwardRef<
             traineeId: methods.getValues("traineeId"),
             traineeeducationdetailId: e.traineeeducationdetailId || undefined,
             educationType: e.educationType,
-            passingYear: toApiYearMonth(e.passingYear),
+            passingYear: e.passingYear,
+            academicYear: e.academicYear,
             education: e.education,
             boardId: e.boardId,
             instituteId: e.instituteId,
@@ -315,7 +311,7 @@ const EducationDetails = forwardRef<
         var response: any = await postData(
           "private/trainee/educationdetail/save",
           payload,
-          apiHeader(false, 2),
+          apiHeader(false, 0),
         );
 
         if (
@@ -480,36 +476,6 @@ const EducationDetails = forwardRef<
                   )}
                 </div>
                 <div>
-                  <label className={labelClass}>
-                    {isCompleted ? "Passing Year" : "Academic Year"}{" "}
-                    <span className="text-primary">*</span>
-                  </label>
-                  <Controller
-                    name={`educations.${idx}.passingYear`}
-                    control={control}
-                    render={({ field }) => (
-                      <DatePicker
-                        value={stringToDate(field.value)}
-                        onChange={(val: any) =>
-                          field.onChange(dateToString(val))
-                        }
-                        format="MM-yyyy"
-                        maxDetail="year"
-                        monthPlaceholder="mm"
-                        yearPlaceholder="yyyy"
-                        clearIcon={null}
-                        maxDate={new Date()}
-                        className="react-date-picker--custom"
-                      />
-                    )}
-                  />
-                  {eduErrors?.passingYear && (
-                    <p className={errorClass}>
-                      {eduErrors.passingYear.message as string}
-                    </p>
-                  )}
-                </div>
-                <div>
                   <label className={labelClass}>Education Completed</label>
                   <Controller
                     name={`educations.${idx}.isCompleted`}
@@ -545,6 +511,67 @@ const EducationDetails = forwardRef<
                     )}
                   />
                 </div>
+                {isCompleted ? (
+                  <div>
+                    <label className={labelClass}>
+                      Passing Year <span className="text-primary">*</span>
+                    </label>
+                    <Controller
+                      name={`educations.${idx}.passingYear`}
+                      control={control}
+                      render={({ field }) => (
+                        <DatePicker
+                          value={stringToDate(field.value)}
+                          onChange={(val: any) =>
+                            field.onChange(dateToString(val))
+                          }
+                          format="MM-yyyy"
+                          maxDetail="year"
+                          monthPlaceholder="mm"
+                          yearPlaceholder="yyyy"
+                          clearIcon={null}
+                          maxDate={new Date()}
+                          className="react-date-picker--custom"
+                        />
+                      )}
+                    />
+                    {eduErrors?.passingYear && (
+                      <p className={errorClass}>
+                        {eduErrors.passingYear.message as string}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <div>
+                    <label className={labelClass}>
+                      Academic Year <span className="text-primary">*</span>
+                    </label>
+                    <Controller
+                      name={`educations.${idx}.academicYear`}
+                      control={control}
+                      render={({ field }) => (
+                        <DatePicker
+                          value={stringToDate(field.value)}
+                          onChange={(val: any) =>
+                            field.onChange(dateToString(val))
+                          }
+                          format="MM-yyyy"
+                          maxDetail="year"
+                          monthPlaceholder="mm"
+                          yearPlaceholder="yyyy"
+                          clearIcon={null}
+                          maxDate={new Date()}
+                          className="react-date-picker--custom"
+                        />
+                      )}
+                    />
+                    {eduErrors?.academicYear && (
+                      <p className={errorClass}>
+                        {eduErrors.academicYear.message as string}
+                      </p>
+                    )}
+                  </div>
+                )}
                 {isCompleted && (
                   <div>
                     <label className={labelClass}>
@@ -666,6 +693,7 @@ const EducationDetails = forwardRef<
             boardId: "",
             instituteId: "",
             passingYear: "",
+            academicYear: "",
             percentage: "",
             isCompleted: "0",
             document: "",
