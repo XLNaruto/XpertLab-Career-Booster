@@ -158,6 +158,15 @@ body::before {
   animation: pulseDot 2s ease-in-out infinite;
 }
 
+/* Minimal, subtle blink for unanswered feedback cards */
+@keyframes softBlink {
+  0%, 100% { border-color: hsl(0 80% 80% / 0.35); }
+  50% { border-color: hsl(0 80% 70% / 0.9); }
+}
+.animate-soft-blink {
+  animation: softBlink 0.7s ease-in-out 2;
+}
+
 @keyframes fadeSlideUp {
   from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: none; }

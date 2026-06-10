@@ -21,7 +21,7 @@ const navItems = [
   { label: "Dashboard", path: "/dashboard" },
   { label: "Exercises", path: "/exercises" },
   { label: "Feedback", path: "/feedback" },
-  // { label: "Exam", path: "/exam" },
+  { label: "Exam", path: "/exam" },
 ];
 
 const MainLayout = () => {
@@ -32,6 +32,9 @@ const MainLayout = () => {
 
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [profile, setProfile] = useState({ firstName: "", profilePicture: "" });
+  // Whether the trainee has already submitted feedback. While unknown we keep
+  // it false so the option is hidden until we confirm it is still pending.
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState(true);
 
   const handleLogout = () => {
     clearCookies();
@@ -59,9 +62,34 @@ const MainLayout = () => {
     }
   };
 
+  // Fetch feedback status globally so the nav can hide the option once the
+  // trainee has submitted. Re-checked on route changes so it updates right
+  // after a submission without a full reload.
+  const fetchFeedbackStatus = async () => {
+    const response: any = await postData(
+      "private/trainee/feedback/questions",
+      {},
+      apiHeader(false, 0),
+    );
+    if (
+      String(response?.status) === "200" &&
+      String(response.data?.status) === "200"
+    ) {
+      setFeedbackSubmitted(!!response.data.data?.submitted);
+    }
+  };
+
   useEffect(() => {
     fetchProfile();
   }, []);
+
+  useEffect(() => {
+    fetchFeedbackStatus();
+  }, [location.pathname]);
+
+  const visibleNavItems = navItems.filter(
+    (item) => item.path !== "/feedback" || !feedbackSubmitted,
+  );
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -108,7 +136,7 @@ const MainLayout = () => {
             transition={{ delay: 0.2, duration: 0.5 }}
             className="flex items-center gap-1 bg-white/[0.5] border border-white/[0.85] rounded-xl px-1.5 py-1 backdrop-blur-[20px] shadow-[var(--shadow-sm)] overflow-hidden"
           >
-            {navItems.map((item, index) => (
+            {visibleNavItems.map((item, index) => (
               <Link
                 key={item.label}
                 to={item.path}
@@ -171,7 +199,9 @@ const MainLayout = () => {
         </motion.nav>
 
         {/* PAGE CONTENT */}
-        <Outlet />
+        {/* Expose the feedback status refresher so pages (e.g. Feedback) can
+            update the nav right after a submission. */}
+        <Outlet context={{ refreshFeedbackStatus: fetchFeedbackStatus }} />
       </div>
 
       <AlertDialog open={logoutOpen} onOpenChange={setLogoutOpen}>
