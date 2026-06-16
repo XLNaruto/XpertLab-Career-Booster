@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useForm, FormProvider } from "react-hook-form";
 import { motion } from "framer-motion";
 import {
@@ -41,7 +42,9 @@ const tabs = [
 ];
 
 const MyProfile = () => {
-  const [activeTab, setActiveTab] = useState("Personal Details");
+  const [searchParams] = useSearchParams();
+  const initialTab = tabs.find((t) => t.label === searchParams.get("tab"))?.label;
+  const [activeTab, setActiveTab] = useState(initialTab || "Personal Details");
   const [bannerInfo, setBannerInfo] = useState({
     fullName: "",
     email: "",
@@ -196,10 +199,6 @@ const MyProfile = () => {
       return documentsRef.current.save();
     }
     return true;
-  };
-
-  const handleFinalSave = async () => {
-    await saveActiveTab();
   };
 
   const currentTabIndex = tabs.findIndex((t) => t.label === activeTab);
@@ -381,21 +380,13 @@ const MyProfile = () => {
                     Back
                   </button>
                 )}
-                {currentTabIndex < tabs.length - 1 ? (
+                {currentTabIndex < tabs.length - 1 && (
                   <button
                     type="button"
                     onClick={handleNext}
                     className="px-8 py-2.5 bg-gradient-to-br from-primary to-primary-light text-primary-foreground rounded-xl text-sm font-bold shadow-[var(--shadow-primary)] hover:shadow-[0_12px_36px_hsl(342_80%_53%/0.5)] hover:-translate-y-0.5 transition-all duration-300"
                   >
                     {activeTab === "Course Details" ? "Next" : "Save & Next"}
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={handleFinalSave}
-                    className="px-8 py-2.5 bg-gradient-to-br from-primary to-primary-light text-primary-foreground rounded-xl text-sm font-bold shadow-[var(--shadow-primary)] hover:shadow-[0_12px_36px_hsl(342_80%_53%/0.5)] hover:-translate-y-0.5 transition-all duration-300"
-                  >
-                    Save
                   </button>
                 )}
               </div>

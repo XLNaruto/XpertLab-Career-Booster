@@ -1,6 +1,5 @@
-import { useFormContext, Controller } from "react-hook-form";
-import { FileUploader } from "react-drag-drop-files";
-import { FileText, Upload, CheckCircle, X, Eye } from "lucide-react";
+import { useFormContext } from "react-hook-form";
+import { FileText, CheckCircle, Eye, Info } from "lucide-react";
 import { inputClass, labelClass, errorClass, iconClass } from "./styles";
 import type { ProfileFormData, TraineeDocument } from "./types";
 import {
@@ -21,8 +20,6 @@ export type DocumentDetailsHandle = {
 type DocumentDetailsProps = {
   onSaved?: () => void;
 };
-
-const fileTypes = ["JPG", "JPEG", "PNG", "GIF", "PDF"];
 
 const isImage = (path: string) => /\.(jpe?g|png|gif|webp|bmp)$/i.test(path);
 
@@ -145,57 +142,6 @@ const Documents = forwardRef<DocumentDetailsHandle, DocumentDetailsProps>(
       }
     }, [traineeId, masterList]);
 
-    const handleDocumentChange = async (file: File, index: number) => {
-      if (!file) return;
-      const validTypes = [
-        "image/jpeg",
-        "image/png",
-        "image/gif",
-        "application/pdf",
-      ];
-      if (!validTypes.includes(file.type)) {
-        toasterrormsg("Invalid file type. Please upload only image or PDF.");
-        return;
-      }
-      if (file.size > 1 * 1024 * 1024) {
-        toasterrormsg("File size should not exceed 1MB.");
-        return;
-      }
-
-      const param = new FormData();
-      // param.append("path", "document/");
-      param.append("document", file);
-      const response: any = await postData(
-        "private/trainee/documentdetail/uploadDocument",
-        param,
-        apiHeader(true, 2),
-      );
-
-      if (
-        String(response?.status) === "200" &&
-        String(response.data?.status) === "200"
-      ) {
-        const data = response.data.data;
-        const current = methods.getValues(`documents.${index}`);
-        methods.setValue(`documents.${index}`, {
-          ...current,
-          document: data?.uploadedPath || data?.document || "",
-          url: data?.url || data?.uploadedPath || "",
-        });
-      } else {
-        toasterrormsg(response?.data?.message || "Something went wrong");
-      }
-    };
-
-    const handleRemoveDocument = (index: number) => {
-      const current = methods.getValues(`documents.${index}`);
-      methods.setValue(`documents.${index}`, {
-        ...current,
-        document: "",
-        url: "",
-      });
-    };
-
     useEffect(() => {
       const sub = methods.watch((_v, { name }) => {
         if (!name || !submittedRef.current) return;
@@ -278,6 +224,12 @@ const Documents = forwardRef<DocumentDetailsHandle, DocumentDetailsProps>(
 
     return (
       <div className="space-y-4">
+        <div className="flex items-start gap-2.5 rounded-xl border border-secondary/20 bg-secondary/[0.06] px-4 py-3">
+          <Info className="w-4 h-4 text-secondary shrink-0 mt-0.5" />
+          <p className="text-[12.5px] text-foreground/70 leading-relaxed">
+            To change your documents, please contact the Trainee Head.
+          </p>
+        </div>
         <div>
           <label className={labelClass}>
             Aadhar Card Number <span className="text-primary">*</span>
@@ -291,11 +243,8 @@ const Documents = forwardRef<DocumentDetailsHandle, DocumentDetailsProps>(
               placeholder="Ex: 123456789012"
               inputMode="numeric"
               maxLength={12}
-              onInput={(e) => {
-                const t = e.target as HTMLInputElement;
-                t.value = t.value.replace(/\D/g, "").slice(0, 12);
-              }}
-              className={inputClass}
+              readOnly
+              className={`${inputClass} bg-foreground/[0.04] cursor-not-allowed`}
             />
           </div>
           {errors.aadharNumber && (
@@ -344,43 +293,24 @@ const Documents = forwardRef<DocumentDetailsHandle, DocumentDetailsProps>(
                           {doc.document.split("/").pop()}
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-2 mt-auto">
+                      <div className="mt-auto">
                         <button
                           type="button"
                           onClick={() => window.open(doc.url || doc.document, "_blank")}
                           disabled={!doc.url && !doc.document}
-                          className="py-1.5 text-[12px] font-semibold rounded-lg bg-white/70 border border-foreground/[0.1] text-foreground/80 hover:bg-white transition-all flex items-center justify-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed"
+                          className="w-full py-1.5 text-[12px] font-semibold rounded-lg bg-white/70 border border-foreground/[0.1] text-foreground/80 hover:bg-white transition-all flex items-center justify-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           <Eye className="w-3.5 h-3.5" /> View
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveDocument(idx)}
-                          className="py-1.5 text-[12px] font-semibold rounded-lg bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15 transition-all flex items-center justify-center gap-1"
-                        >
-                          <X className="w-3.5 h-3.5" /> Remove
                         </button>
                       </div>
                     </div>
                   ) : (
-                    <FileUploader
-                      handleChange={(file: File) => handleDocumentChange(file, idx)}
-                      name={`document-${idx}`}
-                      types={fileTypes}
-                      dropMessageStyle={{ display: "none" }}
-                      hoverTitle=" "
-                      classes="h-full"
-                    >
-                      <div className="h-full border-2 border-dashed border-foreground/[0.1] hover:border-primary/30 hover:bg-primary/[0.02] rounded-xl p-3 flex flex-col items-center justify-center gap-2 transition-all cursor-pointer">
-                        <Upload className="w-6 h-6 text-foreground/20" />
-                        <div className="text-[13px] font-semibold text-foreground/50">
-                          Upload Document
-                        </div>
-                        <div className="text-[11px] text-muted-foreground text-center">
-                          Drag & Drop or choose files
-                        </div>
+                    <div className="h-full border-2 border-dashed border-foreground/[0.1] rounded-xl p-3 flex flex-col items-center justify-center gap-2">
+                      <FileText className="w-6 h-6 text-foreground/20" />
+                      <div className="text-[13px] font-semibold text-foreground/40">
+                        Not Uploaded
                       </div>
-                    </FileUploader>
+                    </div>
                   )}
                   {fieldErr && <p className={errorClass}>{fieldErr}</p>}
                 </div>

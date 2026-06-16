@@ -276,7 +276,7 @@ const CourseDetails = forwardRef<StepHandle, CourseDetailsProps>(
             traineeareaId: v.traineeArea,
             batchId: v.batchDay,
             timingId: v.batchTime,
-            startDate: v.joiningDate,
+            startDate: v.joiningDate ? moment(v.joiningDate).format("YYYY-MM-DD") : "",
             hasLaptop: v.hasLaptop,
             computerId: v.hasLaptop === 0 ? v.computerId : "",
           };

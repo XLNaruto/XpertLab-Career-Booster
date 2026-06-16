@@ -56,17 +56,6 @@ const prefixList = [
   { label: "Mrs.", value: "Mrs." },
 ];
 
-const personalFields: Array<keyof ProfileFormData> = [
-  "prefix",
-  "firstName",
-  "lastName",
-  "gender",
-  "birthDate",
-  "email",
-  "mobile1",
-  "userName",
-];
-
 const PersonalDetails = forwardRef<PersonalDetailsHandle, PersonalDetailsProps>(
   ({ existingPictureUrl, onSaved }, ref) => {
     const [showPassword, setShowPassword] = useState(false);
@@ -97,28 +86,48 @@ const PersonalDetails = forwardRef<PersonalDetailsHandle, PersonalDetailsProps>(
       const sub = methods.watch((_v, { name }) => {
         if (!name || !submittedRef.current) return;
         const values = methods.getValues();
-        const result = personalDetailsSchema.safeParse(values);
-        let issueMessage: string | undefined = result.success
-          ? undefined
-          : result.error.issues.find((i) => i.path[0] === name)?.message;
-
         const hasTraineeId = !!(
           values.traineeId && String(values.traineeId).trim() !== ""
         );
-        if (
-          !hasTraineeId &&
-          (name === "password" || name === "confirmPassword")
-        ) {
+
+        // Password & confirm-password are cross-dependent: changing either one
+        // must re-validate BOTH fields, otherwise typing in "password" never
+        // fires the "confirm password" validation.
+        if (!hasTraineeId && (name === "password" || name === "confirmPassword")) {
           const pwd = (values.password || "").trim();
           const cpw = (values.confirmPassword || "").trim();
-          if (name === "password" && !pwd)
-            issueMessage = "Please Enter Password";
-          else if (name === "confirmPassword" && !cpw)
-            issueMessage = "Please Enter Confirm Password";
-          else if (name === "confirmPassword" && pwd && pwd !== cpw)
-            issueMessage = "Password and Confirm Password didn't match";
-          else issueMessage = undefined;
+
+          // password field
+          if (!pwd) {
+            methods.setError("password", {
+              type: "manual",
+              message: "Please Enter Password",
+            });
+          } else {
+            methods.clearErrors("password");
+          }
+
+          // confirm-password field
+          if (pwd && !cpw) {
+            methods.setError("confirmPassword", {
+              type: "manual",
+              message: "Please Enter Confirm Password",
+            });
+          } else if (pwd && cpw && pwd !== cpw) {
+            methods.setError("confirmPassword", {
+              type: "manual",
+              message: "Password and Confirm Password didn't match",
+            });
+          } else {
+            methods.clearErrors("confirmPassword");
+          }
+          return;
         }
+
+        const result = personalDetailsSchema.safeParse(values);
+        const issueMessage: string | undefined = result.success
+          ? undefined
+          : result.error.issues.find((i) => i.path[0] === name)?.message;
 
         if (issueMessage) {
           methods.setError(name as any, {
@@ -137,8 +146,27 @@ const PersonalDetails = forwardRef<PersonalDetailsHandle, PersonalDetailsProps>(
       () => ({
         save: async () => {
           submittedRef.current = true;
-          const valid = await methods.trigger(personalFields as any);
-          if (!valid) return false;
+
+          // The form has no zod resolver, so validate against the schema here.
+          // This fires errors for every invalid field (including the cross-field
+          // password / confirm-password rules) before any API call is made.
+          const values = methods.getValues();
+          const result = personalDetailsSchema.safeParse(values);
+
+          methods.clearErrors();
+          if (!result.success) {
+            const seen = new Set<string>();
+            result.error.issues.forEach((issue) => {
+              const field = String(issue.path[0] ?? "");
+              if (!field || seen.has(field)) return;
+              seen.add(field);
+              methods.setError(field as any, {
+                type: "manual",
+                message: issue.message,
+              });
+            });
+            return false;
+          }
 
           const v = methods.getValues();
           const param = new FormData();
@@ -513,7 +541,7 @@ const PersonalDetails = forwardRef<PersonalDetailsHandle, PersonalDetailsProps>(
                       value === methods.getValues("password") ||
                       "Passwords do not match",
                   })}
-                  placeholder="Confirm Password"
+                  placeholder="Leave blank to keep current"
                   type={showConfirmPassword ? "text" : "password"}
                   className={`${inputClass} !pr-10`}
                   autoComplete="new-password"

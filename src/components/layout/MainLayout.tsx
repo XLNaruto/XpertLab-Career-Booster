@@ -20,8 +20,8 @@ import {
 const navItems = [
   { label: "Dashboard", path: "/dashboard" },
   { label: "Exercises", path: "/exercises" },
-  { label: "Feedback", path: "/feedback" },
   { label: "Exam", path: "/exam" },
+  { label: "Feedback", path: "/feedback" },
 ];
 
 const MainLayout = () => {

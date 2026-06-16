@@ -2,11 +2,12 @@ import { Link } from "react-router-dom";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { motion, useInView } from "motion/react";
 import WelcomePopup from "@/components/WelcomePopup";
-import { CalendarDays, CheckCircle2, XCircle, TrendingUp, Clock, Star, PartyPopper, ChevronLeft, ChevronRight } from "lucide-react";
+import { CalendarDays, CheckCircle2, XCircle, TrendingUp, Clock, Star, PartyPopper, ChevronLeft, ChevronRight, GraduationCap, Circle } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Calendar, momentLocalizer, type ToolbarProps } from "react-big-calendar";
 import moment from "moment";
 import "react-big-calendar/lib/css/react-big-calendar.css";
+import { PieChart, Pie, Cell, RadialBarChart, RadialBar, PolarAngleAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { apiHeader, postData } from "@/utils/ApiHelper";
 import { getEncodedCookie, toasterrormsg } from "@/utils/reusable";
 
@@ -52,6 +53,14 @@ type DashboardAnalysis = {
       percentage: number;
     }[];
   };
+  course: {
+    traineecourseId: string;
+    coursedurationId: string;
+    courseName: string;
+    startDate: string;
+    endDate: string;
+    enrollmentType: string;
+  } | null;
 };
 
 const emptyAnalysis: DashboardAnalysis = {
@@ -59,6 +68,7 @@ const emptyAnalysis: DashboardAnalysis = {
   feePayment: { totalFee: 0, paidFee: 0, pendingFee: 0, percentPaid: 0 },
   attendance: { totalDays: 0, presentDays: 0, absentDays: 0, extraDays: 0 },
   training: { overall: { completedExercises: 0, totalExercises: 0, percentage: 0 }, courses: [] },
+  course: null,
 };
 
 // Status of a single day in the attendance calendar
@@ -452,6 +462,12 @@ const Dashboard = () => {
   const [analysis, setAnalysis] = useState<DashboardAnalysis>(emptyAnalysis);
   const [calendar, setCalendar] = useState<DashboardCalendar | null>(null);
 
+  // Raw data used to compute the profile-completion checklist
+  const [personalData, setPersonalData] = useState<any>(null);
+  const [guardianList, setGuardianList] = useState<any[]>([]);
+  const [educationList, setEducationList] = useState<any[]>([]);
+  const [documentsComplete, setDocumentsComplete] = useState(false);
+
   const fetchPersonalDetails = async () => {
     const traineeId = getEncodedCookie("traineeId");
     if (!traineeId) return;
@@ -466,18 +482,69 @@ const Dashboard = () => {
     ) {
       const data = response.data.data || {};
       setFirstName(data.firstName || "");
+      setPersonalData(data);
+    }
+  };
+
+  // Fetch the remaining profile sections (in parallel) for the completion checklist
+  const profileCompletionApiCall = async () => {
+    const traineeId = getEncodedCookie("traineeId");
+    if (!traineeId) return;
+    const [guardianRes, educationRes, documentRes, masterDocRes]: any[] =
+      await Promise.all([
+        postData("private/trainee/guardiandetail/list", { traineeId }, apiHeader(false, 2)),
+        postData("private/trainee/educationdetail/list", { traineeId }, apiHeader(false, 2)),
+        postData("private/trainee/documentdetail/list", { traineeId }, apiHeader(false, 2)),
+        postData("master/traineedocument/list", {}, apiHeader(false, 2)),
+      ]);
+
+    const ok = (r: any) =>
+      String(r?.status) === "200" && String(r?.data?.status) === "200";
+
+    if (ok(guardianRes)) {
+      const d = guardianRes.data.data;
+      setGuardianList(Array.isArray(d) ? d : d?.list || []);
+    }
+    if (ok(educationRes)) {
+      const d = educationRes.data.data;
+      setEducationList(Array.isArray(d) ? d : d?.list || []);
+    }
+
+    // Documents complete = aadhar present AND every compulsory document uploaded
+    if (ok(documentRes) && ok(masterDocRes)) {
+      const docData = documentRes.data.data || {};
+      const uploaded: any[] = Array.isArray(docData)
+        ? docData
+        : docData.list || docData.documents || [];
+      const aadhar = docData.aadharcardNumber || docData.aadharNumber || "";
+      const master: any[] = masterDocRes.data.data?.list || [];
+      const compulsory = master.filter(
+        (m) =>
+          m.isCompulsory === true ||
+          m.isCompulsory === 1 ||
+          String(m.isCompulsory) === "1"
+      );
+      const allCompulsoryUploaded = compulsory.every((m) =>
+        uploaded.some(
+          (u) =>
+            String(u.traineedocumentId) === String(m.traineedocumentId) &&
+            !!u.document
+        )
+      );
+      setDocumentsComplete(!!aadhar && allCompulsoryUploaded);
     }
   };
 
   useEffect(() => {
     fetchPersonalDetails();
+    profileCompletionApiCall();
   }, []);
 
   const dashboardAnalysisApiCall = async () => {
     const response: any = await postData(
       "private/trainee/dashboard/analysis",
       {},
-      apiHeader(false, 2)
+      apiHeader(false, 0)
     );
     if (
       String(response?.status) === "200" &&
@@ -521,9 +588,62 @@ const Dashboard = () => {
     dashboardCalendarApiCall(moment().month() + 1, moment().year());
   }, []);
 
-  const { trainingProgress, feePayment, attendance, training } = analysis;
+  const { trainingProgress, attendance, training, course } = analysis;
   const courses = training.courses;
   const overall = training.overall;
+
+  // Profile-completion checklist: each section + whether it's filled in.
+  // "Complete" rules mirror the required fields in myprofile/components/schemas.ts.
+  const filled = (v: any) => v !== undefined && v !== null && String(v).trim() !== "";
+  const profileSections = [
+    {
+      label: "Personal Details",
+      tab: "Personal Details",
+      complete:
+        !!personalData &&
+        [
+          personalData.firstName,
+          personalData.lastName,
+          personalData.gender,
+          personalData.birthDate,
+          personalData.email,
+          personalData.mobileNumber,
+          personalData.username,
+        ].every(filled),
+    },
+    {
+      label: "Location Details",
+      tab: "Location Details",
+      complete:
+        !!personalData &&
+        [personalData.stateId, personalData.cityId, personalData.address].every(filled),
+    },
+    { label: "Guardian Details", tab: "Guardian Details", complete: guardianList.length > 0 },
+    { label: "Education Details", tab: "Education Details", complete: educationList.length > 0 },
+    { label: "Course Details", tab: "Course Details", complete: !!course },
+    { label: "Documents", tab: "Documents", complete: documentsComplete },
+  ];
+  const completedSections = profileSections.filter((s) => s.complete).length;
+  const profilePercent = Math.round((completedSections / profileSections.length) * 100);
+
+  // Attendance breakdown donut (same data as the stat cards, shown as a chart)
+  const attendanceChartData = [
+    { name: "Present", value: attendance.presentDays, color: "#22c55e" },
+    { name: "Absent", value: attendance.absentDays, color: "hsl(342 80% 53%)" },
+    { name: "Extra", value: attendance.extraDays, color: "#f59e0b" },
+  ].filter((d) => d.value > 0);
+  const attendanceRate = attendance.totalDays
+    ? Math.round((attendance.presentDays / attendance.totalDays) * 100)
+    : 0;
+
+  // Per-technology completion as a bar chart (same data as the technologies list)
+  const techChartData = courses.map((c) => ({
+    name: c.name,
+    percentage: c.percentage,
+    completed: c.completed,
+    total: c.total,
+    pending: Math.max(0, c.total - c.completed),
+  }));
 
   const attendanceStats: StatCard[] = [
     { label: "Total Days", value: attendance.totalDays, icon: <CalendarDays className="w-5 h-5" />, iconBg: "bg-secondary/10 text-secondary" },
@@ -531,8 +651,6 @@ const Dashboard = () => {
     { label: "Absent Days", value: attendance.absentDays, icon: <XCircle className="w-5 h-5" />, iconBg: "bg-primary/10 text-primary" },
     { label: "Extra Days", value: attendance.extraDays, icon: <Star className="w-5 h-5" />, iconBg: "bg-amber-500/10 text-amber-500" },
   ];
-
-  const formatCurrency = (amount: number) => `₹${(amount || 0).toLocaleString("en-IN")}`;
 
   // Holidays for the viewed month(s), from the calendar API, sorted by date
   type HolidayItem = { name: string; date: string; from: moment.Moment; to: moment.Moment };
@@ -595,7 +713,6 @@ const Dashboard = () => {
               Here's your training progress overview
             </motion.p>
           </div>
-
           {/* Notices */}
           <div className="grid grid-cols-2 gap-4 mb-6">
             <motion.div
@@ -634,42 +751,125 @@ const Dashboard = () => {
               </div>
             </motion.div>
 
+            {/* Enrolled Course */}
             <motion.div
               initial={{ opacity: 0, x: 30 }}
               animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5, delay: 0.75 }}
-              className="bg-primary/[0.06] border border-primary/20 rounded-2xl p-5 backdrop-blur-[20px] flex items-start gap-4"
+              transition={{ duration: 0.5, delay: 0.6 }}
+              className="bg-indigo-500/[0.06] border border-indigo-500/20 rounded-2xl p-5 backdrop-blur-[20px] flex items-start gap-4"
             >
               <motion.div
                 initial={{ scale: 0, rotate: 90 }}
                 animate={{ scale: 1, rotate: 0 }}
-                transition={{ type: "spring", stiffness: 300, damping: 20, delay: 1.05 }}
-                className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 mt-0.5"
+                transition={{ type: "spring", stiffness: 300, damping: 20, delay: 0.9 }}
+                className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center shrink-0 mt-0.5"
               >
-                <TrendingUp className="w-5 h-5 text-primary" />
+                <GraduationCap className="w-5 h-5 text-indigo-500" />
               </motion.div>
-              <div>
-                <h3 className="text-[13.5px] font-semibold text-foreground mb-1">Fee Payment Status</h3>
-                <p className="text-[12.5px] text-muted-foreground leading-relaxed">Total fee: <span className="font-semibold text-foreground">{formatCurrency(feePayment.totalFee)}</span>. Paid: <span className="font-semibold text-secondary">{formatCurrency(feePayment.paidFee)}</span>. Remaining: <span className="font-semibold text-primary">{formatCurrency(feePayment.pendingFee)}</span> — please pay as soon as possible to continue your training.</p>
-                <div className="mt-3 w-full h-2 rounded-full bg-primary/10 overflow-hidden">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${feePayment.percentPaid}%` }}
-                    transition={{ duration: 1, delay: 1.25, ease: "easeOut" }}
-                    className="h-full rounded-full bg-gradient-to-r from-primary to-primary-light"
-                  />
-                </div>
-                <motion.p
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 1.9 }}
-                  className="text-[11px] text-muted-foreground mt-1.5"
-                >
-                  {feePayment.percentPaid}% paid
-                </motion.p>
+              <div className="min-w-0">
+                <h3 className="text-[13.5px] font-semibold text-foreground mb-1">Enrolled Course</h3>
+                {course ? (
+                  <>
+                    <p className="text-[14px] font-bold text-foreground truncate">{course.courseName}</p>
+                    <div className="flex flex-wrap items-center gap-2 mt-1.5">
+                      <span className="text-[10.5px] font-semibold px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-600 uppercase tracking-wide">
+                        {course.enrollmentType}
+                      </span>
+                      <span className="text-[11.5px] text-muted-foreground">
+                        {moment(course.startDate).format("DD MMM YYYY")} &rarr; {moment(course.endDate).format("DD MMM YYYY")}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground mt-1.5">
+                      Duration: <span className="font-semibold text-foreground">{Math.max(0, moment(course.endDate).diff(moment(course.startDate), "weeks"))} weeks</span>
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-[12.5px] text-muted-foreground leading-relaxed">No active enrollment found.</p>
+                )}
               </div>
             </motion.div>
           </div>
+
+          {/* Profile Completion */}
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.4 }}
+            className="mb-6 bg-white/[0.6] border border-white/[0.88] rounded-2xl p-6 backdrop-blur-[20px] shadow-[var(--shadow-sm)] flex flex-col lg:flex-row lg:items-center gap-6"
+          >
+            {/* Circular progress ring */}
+            <div className="flex items-center gap-4 shrink-0">
+              <div className="relative w-[92px] h-[92px]">
+                <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
+                  <circle cx="50" cy="50" r="42" fill="none" stroke="hsl(var(--secondary) / 0.12)" strokeWidth="9" />
+                  <motion.circle
+                    cx="50"
+                    cy="50"
+                    r="42"
+                    fill="none"
+                    stroke="hsl(var(--secondary))"
+                    strokeWidth="9"
+                    strokeLinecap="round"
+                    strokeDasharray={2 * Math.PI * 42}
+                    initial={{ strokeDashoffset: 2 * Math.PI * 42 }}
+                    animate={{ strokeDashoffset: 2 * Math.PI * 42 * (1 - profilePercent / 100) }}
+                    transition={{ duration: 1.1, delay: 0.6, ease: "easeOut" }}
+                  />
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-[22px] font-bold font-serif text-foreground leading-none">{profilePercent}%</span>
+                </div>
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-foreground leading-tight">Profile Strength</h2>
+                <p className="text-[12.5px] text-muted-foreground mt-0.5">
+                  {completedSections} of {profileSections.length} sections completed
+                </p>
+                {completedSections < profileSections.length && (
+                  <p className="text-[11.5px] text-secondary font-semibold mt-1">Finish your profile to unlock everything →</p>
+                )}
+              </div>
+            </div>
+
+            {/* Section chips */}
+            <div className="flex-1 w-full grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+              {profileSections.map((s, i) => (
+                <motion.div
+                  key={s.label}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.3, delay: 0.6 + i * 0.06 }}
+                >
+                  <Link
+                    to={`/profile?tab=${encodeURIComponent(s.tab)}`}
+                    className={`group flex items-center gap-2.5 rounded-xl border px-3 py-2.5 transition-all duration-200 ${
+                      s.complete
+                        ? "bg-green-500/[0.07] border-green-500/25 hover:bg-green-500/[0.12]"
+                        : "bg-white/[0.5] border-foreground/[0.08] hover:border-secondary/40 hover:bg-white/[0.8]"
+                    }`}
+                  >
+                    <span
+                      className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                        s.complete ? "bg-green-500/15" : "bg-foreground/[0.05] group-hover:bg-secondary/10"
+                      }`}
+                    >
+                      {s.complete ? (
+                        <CheckCircle2 className="w-4 h-4 text-green-600" />
+                      ) : (
+                        <Circle className="w-4 h-4 text-muted-foreground/40 group-hover:text-secondary" />
+                      )}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-[12.5px] font-semibold text-foreground truncate">{s.label}</span>
+                      <span className={`block text-[10.5px] font-medium ${s.complete ? "text-green-600" : "text-muted-foreground"}`}>
+                        {s.complete ? "Completed" : "Pending"}
+                      </span>
+                    </span>
+                  </Link>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
 
           {/* Two Analysis Grids */}
           <div className="grid grid-cols-2 gap-5">
@@ -819,7 +1019,7 @@ const Dashboard = () => {
                 transition={{ duration: 0.3, delay: 1 }}
                 className="text-[13px] font-semibold text-foreground mb-3"
               >
-                Courses ({courses.length})
+                Technologies You're Learning ({courses.length})
               </motion.div>
               <div className="flex flex-col gap-2.5 flex-1 overflow-y-auto pr-1 -mr-1">
                 {courses.map((c, i) => {
@@ -861,6 +1061,143 @@ const Dashboard = () => {
                   );
                 })}
               </div>
+            </motion.div>
+          </div>
+
+          {/* Charts Row */}
+          <div className="grid grid-cols-2 gap-5 mt-5">
+            {/* Attendance Breakdown (donut) */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.3 }}
+              className="bg-white/[0.6] border border-white/[0.88] rounded-2xl p-7 backdrop-blur-[20px] shadow-[var(--shadow-sm)]"
+            >
+              <h2 className="text-lg font-bold text-foreground mb-1">Attendance Breakdown</h2>
+              <p className="text-[12px] text-muted-foreground mb-4">How your {attendance.totalDays} days split up</p>
+              {attendanceChartData.length === 0 ? (
+                <div className="h-[220px] flex items-center justify-center text-sm text-muted-foreground">
+                  No attendance data yet
+                </div>
+              ) : (
+                <div className="flex items-center gap-4">
+                  <div className="relative w-[200px] h-[200px] shrink-0">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={attendanceChartData}
+                          dataKey="value"
+                          nameKey="name"
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={62}
+                          outerRadius={90}
+                          paddingAngle={2}
+                          stroke="none"
+                        >
+                          {attendanceChartData.map((d) => (
+                            <Cell key={d.name} fill={d.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          contentStyle={{
+                            borderRadius: 12,
+                            border: "1px solid hsl(var(--border))",
+                            background: "hsl(var(--background) / 0.95)",
+                            backdropFilter: "blur(8px)",
+                            fontSize: 12,
+                          }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                      <span className="text-[26px] font-bold font-serif text-foreground leading-none">{attendanceRate}%</span>
+                      <span className="text-[11px] text-muted-foreground mt-1">Present</span>
+                    </div>
+                  </div>
+                  <div className="flex-1 flex flex-col gap-3">
+                    {attendanceChartData.map((d) => (
+                      <div key={d.name} className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="w-3 h-3 rounded-full" style={{ background: d.color }} />
+                          <span className="text-[13px] font-medium text-foreground">{d.name}</span>
+                        </div>
+                        <span className="text-[13px] font-bold text-foreground">{d.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </motion.div>
+
+            {/* Technology Progress (bar) */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.4 }}
+              className="bg-white/[0.6] border border-white/[0.88] rounded-2xl p-7 backdrop-blur-[20px] shadow-[var(--shadow-sm)]"
+            >
+              <h2 className="text-lg font-bold text-foreground mb-1">Technology Progress</h2>
+              <p className="text-[12px] text-muted-foreground mb-4">Completion across your technologies</p>
+              {techChartData.length === 0 ? (
+                <div className="h-[220px] flex items-center justify-center text-sm text-muted-foreground">
+                  No technologies yet
+                </div>
+              ) : (
+                <div className="flex items-center gap-4">
+                  <div className="w-[200px] h-[200px] shrink-0">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RadialBarChart
+                        data={techChartData}
+                        innerRadius="32%"
+                        outerRadius="100%"
+                        startAngle={90}
+                        endAngle={-270}
+                        barSize={13}
+                      >
+                        <PolarAngleAxis type="number" domain={[0, 100]} tick={false} />
+                        <RadialBar background dataKey="percentage" cornerRadius={8}>
+                          {techChartData.map((d) => (
+                            <Cell
+                              key={d.name}
+                              fill={d.percentage === 100 ? "#22c55e" : d.percentage >= 50 ? "hsl(207 65% 50%)" : "hsl(342 80% 53%)"}
+                            />
+                          ))}
+                        </RadialBar>
+                        <Tooltip
+                          content={({ active, payload }: any) => {
+                            if (!active || !payload?.length) return null;
+                            const d = payload[0].payload;
+                            return (
+                              <div className="rounded-xl border border-border bg-background/95 backdrop-blur-sm px-3 py-2 text-xs shadow-md">
+                                <div className="font-semibold text-foreground">{d.name}</div>
+                                <div className="text-muted-foreground">{d.percentage}% completed</div>
+                                <div className={d.pending > 0 ? "text-primary font-semibold" : "text-green-600 font-semibold"}>
+                                  {d.pending > 0 ? `${d.pending} pending` : "All done"}
+                                </div>
+                              </div>
+                            );
+                          }}
+                        />
+                      </RadialBarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="flex-1 flex flex-col gap-3">
+                    {techChartData.map((d) => (
+                      <div key={d.name} className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span
+                            className="w-3 h-3 rounded-full shrink-0"
+                            style={{ background: d.percentage === 100 ? "#22c55e" : d.percentage >= 50 ? "hsl(207 65% 50%)" : "hsl(342 80% 53%)" }}
+                          />
+                          <span className="text-[13px] font-medium text-foreground truncate">{d.name}</span>
+                        </div>
+                        <span className="text-[13px] font-bold text-foreground shrink-0">{d.percentage}%</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </motion.div>
           </div>
         </div>
