@@ -12,6 +12,7 @@ import SubExerciseList from "./pages/exercise/ExerciseList";
 import ExerciseDetail from "./pages/exercise/ExerciseDetail";
 import Feedback from "./pages/feedeback/Feedback";
 import Exam from "./pages/exam/Exam";
+import ExamDetail from "./pages/exam/ExamDetail";
 import MyProfile from "./pages/myprofile/MyProfile";
 import NotFound from "./pages/error/NotFound";
 import MainLayout from "./components/layout/MainLayout";
@@ -44,6 +45,7 @@ const App = () => (
               <Route path="/exercises/details" element={<ExerciseDetail />} />
               <Route path="/feedback" element={<Feedback />} />
               <Route path="/exam" element={<Exam />} />
+              <Route path="/exam/details" element={<ExamDetail />} />
               <Route path="/profile" element={<MyProfile />} />
             </Route>
           </Route>

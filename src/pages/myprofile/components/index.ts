@@ -6,4 +6,5 @@ export { default as GuardianDetails } from "./GuardianDetails";
 export { default as EducationDetails } from "./EducationDetails";
 export { default as CourseDetails } from "./CourseDetails";
 export { default as Documents } from "./Documents";
+export { default as FeeHistory } from "./FeeHistory";
 export type { ProfileFormData } from "./types";

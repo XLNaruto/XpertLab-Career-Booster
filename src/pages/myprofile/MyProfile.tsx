@@ -11,6 +11,7 @@ import {
   School,
   Bookmark,
   FolderOpen,
+  IndianRupee,
 } from "lucide-react";
 import {
   PersonalDetails,
@@ -19,6 +20,7 @@ import {
   EducationDetails,
   CourseDetails,
   Documents,
+  FeeHistory,
 } from "./components";
 import type {
   LocationDetailsHandle,
@@ -39,6 +41,7 @@ const tabs = [
   { label: "Education Details", icon: School, component: EducationDetails },
   { label: "Course Details", icon: Bookmark, component: CourseDetails },
   { label: "Documents", icon: FolderOpen, component: Documents },
+  { label: "Fee History", icon: IndianRupee, component: FeeHistory },
 ];
 
 const MyProfile = () => {
@@ -364,7 +367,9 @@ const MyProfile = () => {
               ) : 
               activeTab === "Documents" ? (
                 <Documents ref={documentsRef} />
-              ) : 
+              ) : activeTab === "Fee History" ? (
+                <FeeHistory />
+              ) :
               (
                 ActiveComponent && <ActiveComponent />
               )}

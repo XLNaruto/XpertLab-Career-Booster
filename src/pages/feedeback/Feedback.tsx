@@ -7,8 +7,6 @@ import {
   CheckCircle2,
   ChevronRight,
   MessageSquareText,
-  PenLine,
-  ListChecks,
   Loader2,
   Inbox,
 } from "lucide-react";
@@ -65,11 +63,6 @@ const toQuestion = (q: ApiQuestion): Question => {
   };
 };
 
-const typeIcons = {
-  descriptive: PenLine,
-  single: ListChecks,
-};
-
 const typeColors = {
   descriptive: "from-primary to-primary-light",
   single: "from-secondary to-secondary/70",
@@ -89,7 +82,10 @@ const Feedback = () => {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
+  // Id of the question currently being submitted (one-by-one submit).
+  const [submittingId, setSubmittingId] = useState<string | null>(null);
+  // Ids of questions whose answers are saved and therefore locked (read-only).
+  const [lockedIds, setLockedIds] = useState<Set<string>>(new Set());
   const [submitted, setSubmitted] = useState(false);
   const [activeQuestion, setActiveQuestion] = useState(0);
   // Ids of unanswered questions to flash when the user tries to submit early.
@@ -110,11 +106,21 @@ const Feedback = () => {
       const list: ApiQuestion[] = data.questions || [];
       setQuestions(list.map(toQuestion));
       // Seed any answers the API already has stored for this trainee.
+      // Stored answers are locked (read-only) so they restore on refresh.
       const seeded: Record<string, string> = {};
+      const lockedSeed = new Set<string>();
       list.forEach((q) => {
-        if (q.answer) seeded[String(q.feedbackquestionId)] = q.answer;
+        if (q.answer) {
+          const id = String(q.feedbackquestionId);
+          seeded[id] = q.answer;
+          lockedSeed.add(id);
+        }
       });
       setAnswers(seeded);
+      setLockedIds(lockedSeed);
+      // Start on the first not-yet-answered question.
+      const firstUnlocked = list.findIndex((q) => !q.answer);
+      setActiveQuestion(firstUnlocked === -1 ? 0 : firstUnlocked);
       // If the trainee has already submitted, show the thank-you screen.
       if (data.submitted) setSubmitted(true);
     } else {
@@ -144,27 +150,24 @@ const Feedback = () => {
     setAnswers((prev) => ({ ...prev, [id]: value }));
   };
 
-  const handleSubmit = async () => {
-    const unanswered = questions.filter((q) => !isAnswered(answers[q.id]));
-    if (unanswered.length > 0) {
-      // toasterrormsg("Please answer all questions before submitting");
-      // Flash the unanswered question borders and scroll to the first one.
-      const ids = unanswered.map((q) => q.id);
-      setHighlightIds(ids);
-      const firstIdx = questions.findIndex((q) => q.id === ids[0]);
-      if (firstIdx !== -1) setActiveQuestion(firstIdx);
-      document
-        .getElementById(`q-${ids[0]}`)
-        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+  // Submit a single question. We post the full array of all answered
+  // questions (the existing API contract is unchanged) and lock this one.
+  const handleQuestionSubmit = async (q: Question) => {
+    if (!isAnswered(answers[q.id]) || lockedIds.has(q.id)) {
+      // Flash the question border if it has no answer yet.
+      setHighlightIds([q.id]);
       setTimeout(() => setHighlightIds([]), 1500);
       return;
     }
-    setSubmitting(true);
+    setSubmittingId(q.id);
+    // Submit only the current question's answer (one-by-one).
     const payload = {
-      answers: questions.map((q) => ({
-        feedbackquestionId: Number(q.id),
-        answer: answers[q.id] || "",
-      })),
+      answers: [
+        {
+          feedbackquestionId: Number(q.id),
+          answer: answers[q.id] || "",
+        },
+      ],
     };
     const response: any = await postData(
       "private/trainee/feedback/submit",
@@ -175,14 +178,23 @@ const Feedback = () => {
       String(response?.status) === "200" &&
       String(response.data?.status) === "200"
     ) {
-      toastsuccessmsg(response.data?.message || "Feedback submitted");
-      setSubmitted(true);
-      // Tell MainLayout to refresh so the Feedback nav option hides immediately.
-      refreshFeedbackStatus?.();
+      toastsuccessmsg(response.data?.message || "Answer submitted");
+      const nextLocked = new Set(lockedIds);
+      nextLocked.add(q.id);
+      setLockedIds(nextLocked);
+      // Advance to the next unanswered question. Once every question is
+      // answered, show the thank-you screen and refresh the nav.
+      const nextIdx = questions.findIndex((qq) => !nextLocked.has(qq.id));
+      if (nextIdx === -1) {
+        setSubmitted(true);
+        refreshFeedbackStatus?.();
+      } else {
+        setActiveQuestion(nextIdx);
+      }
     } else {
       toasterrormsg(response?.data?.message || "Something went wrong");
     }
-    setSubmitting(false);
+    setSubmittingId(null);
   };
 
   return (
@@ -332,232 +344,170 @@ const Feedback = () => {
           </div>
         </motion.div>
       ) : (
-        <div className="relative">
-          {/* LEFT SIDEBAR - Progress Tracker (fixed) */}
-          <motion.div
-            initial={{ opacity: 0, x: -30 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5 }}
-            className="fixed w-[400px] space-y-4 max-h-[calc(100vh-120px)] overflow-y-auto pr-2 scrollbar-thin"
-          >
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Link
-                to="/dashboard"
-                className="hover:text-foreground transition-colors"
-              >
-                Dashboard
-              </Link>
-              <ChevronRight className="w-3.5 h-3.5" />
-              <span className="text-foreground font-medium">Feedback</span>
-            </div>
-            <motion.div
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.15 }}
-              className="bg-white/[0.6] border border-white/[0.88] rounded-2xl p-5 backdrop-blur-[20px] shadow-[var(--shadow-sm)]"
-            >
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary-light flex items-center justify-center shadow-[var(--shadow-primary)]">
-                  <MessageSquareText className="w-5 h-5 text-primary-foreground" />
-                </div>
-                <div>
-                  <h1 className="text-lg font-bold text-foreground leading-tight">
-                    Feedback
-                  </h1>
-                  <p className="text-[11px] text-muted-foreground">
-                    Share your thoughts
-                  </p>
-                </div>
-              </div>
-              <div className="mb-2 flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Progress</span>
-                <span className="font-bold text-foreground">
-                  {answeredCount}/{questions.length}
-                </span>
-              </div>
-              <Progress value={progressPercent} className="h-2 mb-1" />
-              <p className="text-[10px] text-muted-foreground text-right">
-                {progressPercent}% completed
-              </p>
-            </motion.div>
-
-            {/* Question Navigator */}
-            <motion.div
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.25 }}
-              className="bg-white/[0.6] border border-white/[0.88] rounded-2xl p-4 backdrop-blur-[20px] shadow-[var(--shadow-sm)]"
-            >
-              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-                Questions
-              </p>
-              <div className="space-y-1.5">
-                {questions.map((q, idx) => {
-                  const answered = isAnswered(answers[q.id]);
-                  const Icon = typeIcons[q.type];
-                  return (
-                    <button
-                      key={q.id}
-                      onClick={() => {
-                        setActiveQuestion(idx);
-                        document
-                          .getElementById(`q-${q.id}`)
-                          ?.scrollIntoView({
-                            behavior: "smooth",
-                            block: "center",
-                          });
-                      }}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-left transition-all duration-200 group ${activeQuestion === idx ? "bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20" : "hover:bg-white/[0.5] border border-transparent"}`}
-                    >
-                      <div
-                        className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${answered ? "bg-gradient-to-br from-green-400 to-green-500" : `bg-gradient-to-br ${typeColors[q.type]}`}`}
-                      >
-                        {answered ? (
-                          <CheckCircle2 className="w-3.5 h-3.5 text-white" />
-                        ) : (
-                          <Icon className="w-3 h-3 text-white" />
-                        )}
-                      </div>
-                      <span
-                        className={`text-[12px] leading-tight line-clamp-2 ${activeQuestion === idx ? "text-foreground font-medium" : "text-muted-foreground group-hover:text-foreground"}`}
-                      >
-                        Q{idx + 1}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </motion.div>
-          </motion.div>
-
-          {/* RIGHT - Questions */}
-          <motion.div
-            className="ml-[450px] pt-9 space-y-4"
-            initial="hidden"
-            animate="visible"
-            variants={{
-              hidden: {},
-              visible: {
-                transition: { staggerChildren: 0.08, delayChildren: 0.3 },
-              },
-            }}
-          >
-            {questions.map((q, idx) => {
-              const badge = typeBadge[q.type];
-              const flash = highlightIds.includes(q.id);
-              return (
-                <motion.div
-                  key={q.id}
-                  id={`q-${q.id}`}
-                  variants={{
-                    hidden: { opacity: 0, y: 25, scale: 0.97 },
-                    visible: {
-                      opacity: 1,
-                      y: 0,
-                      scale: 1,
-                      transition: {
-                        type: "spring" as const,
-                        stiffness: 300,
-                        damping: 24,
-                      },
-                    },
-                  }}
-                  onClick={() => setActiveQuestion(idx)}
-                  className={`bg-white/[0.6] border rounded-2xl p-6 backdrop-blur-[20px] shadow-[var(--shadow-sm)] transition-all duration-300 cursor-pointer ${
-                    flash
-                      ? "border-red-300 animate-soft-blink"
-                      : activeQuestion === idx
-                        ? "border-primary/30 shadow-[0_4px_24px_hsl(342_80%_53%/0.08)]"
-                        : "border-white/[0.88] hover:border-primary/15"
-                  }`}
+        (() => {
+          const idx = Math.min(activeQuestion, questions.length - 1);
+          const q = questions[idx];
+          if (!q) return null;
+          const badge = typeBadge[q.type];
+          const flash = highlightIds.includes(q.id);
+          const locked = lockedIds.has(q.id);
+          const isSubmitting = submittingId === q.id;
+          return (
+            <div className="max-w-2xl mx-auto">
+              {/* Breadcrumb */}
+              <div className="flex items-center gap-2 text-sm text-muted-foreground mb-5">
+                <Link
+                  to="/dashboard"
+                  className="hover:text-foreground transition-colors"
                 >
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-start gap-3">
-                      <div
-                        className={`w-9 h-9 rounded-xl bg-gradient-to-br ${typeColors[q.type]} flex items-center justify-center text-white text-sm font-bold shrink-0 shadow-sm`}
-                      >
-                        {idx + 1}
-                      </div>
-                      <div>
-                        <h3 className="text-[14.5px] font-semibold text-foreground leading-snug">
-                          {q.question}
-                        </h3>
-                      </div>
-                    </div>
-                    <span
-                      className={`text-[10px] font-semibold px-2.5 py-1 rounded-full shrink-0 ml-3 ${badge.bg}`}
+                  Dashboard
+                </Link>
+                <ChevronRight className="w-3.5 h-3.5" />
+                <span className="text-foreground font-medium">Feedback</span>
+              </div>
+
+              {/* Header + progress */}
+              <div className="bg-white/[0.6] border border-white/[0.88] rounded-2xl p-5 backdrop-blur-[20px] shadow-[var(--shadow-sm)] mb-4">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary-light flex items-center justify-center shadow-[var(--shadow-primary)]">
+                    <MessageSquareText className="w-5 h-5 text-primary-foreground" />
+                  </div>
+                  <div>
+                    <h1 className="text-lg font-bold text-foreground leading-tight">
+                      Feedback
+                    </h1>
+                    <p className="text-[11px] text-muted-foreground">
+                      Share your thoughts
+                    </p>
+                  </div>
+                  <span className="ml-auto text-xs font-bold text-foreground">
+                    {answeredCount}/{questions.length}
+                  </span>
+                </div>
+                <Progress value={progressPercent} className="h-2 mb-1" />
+                <p className="text-[10px] text-muted-foreground text-right">
+                  {progressPercent}% completed
+                </p>
+              </div>
+
+              {/* Single active question */}
+              <motion.div
+                key={q.id}
+                initial={{ opacity: 0, y: 25, scale: 0.97 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{
+                  type: "spring" as const,
+                  stiffness: 300,
+                  damping: 24,
+                }}
+                className={`bg-white/[0.6] border rounded-2xl p-6 backdrop-blur-[20px] shadow-[var(--shadow-sm)] transition-all duration-300 ${
+                  flash
+                    ? "border-red-300 animate-soft-blink"
+                    : "border-primary/30 shadow-[0_4px_24px_hsl(342_80%_53%/0.08)]"
+                }`}
+              >
+                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                  Question {idx + 1} of {questions.length}
+                </p>
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-start gap-3">
+                    <div
+                      className={`w-9 h-9 rounded-xl bg-gradient-to-br ${typeColors[q.type]} flex items-center justify-center text-white text-sm font-bold shrink-0 shadow-sm`}
                     >
-                      {badge.label}
-                    </span>
+                      {idx + 1}
+                    </div>
+                    <div>
+                      <h3 className="text-[14.5px] font-semibold text-foreground leading-snug">
+                        {q.question}
+                      </h3>
+                    </div>
+                  </div>
+                  {locked ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1 rounded-full shrink-0 ml-3 bg-green-500/10 text-green-600">
+                        <CheckCircle2 className="w-3 h-3" /> Submitted
+                      </span>
+                    ) : (
+                      <span
+                        className={`text-[10px] font-semibold px-2.5 py-1 rounded-full shrink-0 ml-3 ${badge.bg}`}
+                      >
+                        {badge.label}
+                      </span>
+                    )}
                   </div>
 
-                  {q.type === "descriptive" && (
-                    <textarea
-                      value={(answers[q.id] as string) || ""}
-                      onChange={(e) =>
-                        handleDescriptiveChange(q.id, e.target.value)
-                      }
-                      placeholder="Type your answer here..."
-                      rows={3}
-                      className="w-full rounded-xl border border-foreground/[0.08] bg-white/[0.5] px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/30 resize-none transition-all"
-                    />
-                  )}
+                  {q.type === "descriptive" &&
+                    (locked ? (
+                      <div className="w-full rounded-xl border border-foreground/[0.08] bg-white/[0.35] px-4 py-3 text-sm text-foreground whitespace-pre-wrap">
+                        {answers[q.id]}
+                      </div>
+                    ) : (
+                      <textarea
+                        value={(answers[q.id] as string) || ""}
+                        onChange={(e) =>
+                          handleDescriptiveChange(q.id, e.target.value)
+                        }
+                        placeholder="Type your answer here..."
+                        rows={3}
+                        className="w-full rounded-xl border border-foreground/[0.08] bg-white/[0.5] px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/30 resize-none transition-all"
+                      />
+                    ))}
 
                   {q.type === "single" && q.options && (
                     <RadioGroup
                       value={(answers[q.id] as string) || ""}
-                      onValueChange={(v) => handleSingleChange(q.id, v)}
-                      className="grid grid-cols-2 gap-2"
+                      onValueChange={(v) =>
+                        !locked && handleSingleChange(q.id, v)
+                      }
+                      disabled={locked}
+                      className={`grid grid-cols-2 gap-2 ${locked ? "pointer-events-none" : ""}`}
                     >
-                      {q.options.map((opt) => (
-                        <label
-                          key={opt}
-                          className={`flex items-center gap-3 px-4 py-3 rounded-xl border cursor-pointer transition-all duration-200 ${(answers[q.id] as string) === opt ? "border-secondary/40 bg-secondary/[0.06] shadow-sm shadow-secondary/10" : "border-foreground/[0.06] bg-white/[0.3] hover:bg-white/[0.6] hover:border-foreground/[0.12]"}`}
-                        >
-                          <RadioGroupItem value={opt} />
-                          <span className="text-[13px] text-foreground">
-                            {opt}
-                          </span>
-                        </label>
-                      ))}
+                      {q.options.map((opt) => {
+                        const selected = (answers[q.id] as string) === opt;
+                        if (locked && !selected) return null;
+                        return (
+                          <label
+                            key={opt}
+                            className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-all duration-200 ${locked ? "cursor-default" : "cursor-pointer"} ${selected ? "border-secondary/40 bg-secondary/[0.06] shadow-sm shadow-secondary/10" : "border-foreground/[0.06] bg-white/[0.3] hover:bg-white/[0.6] hover:border-foreground/[0.12]"}`}
+                          >
+                            <RadioGroupItem value={opt} />
+                            <span className="text-[13px] text-foreground">
+                              {opt}
+                            </span>
+                          </label>
+                        );
+                      })}
                     </RadioGroup>
                   )}
 
-                </motion.div>
-              );
-            })}
-
-            <motion.button
-              variants={{
-                hidden: { opacity: 0, y: 20 },
-                visible: {
-                  opacity: 1,
-                  y: 0,
-                  transition: {
-                    type: "spring" as const,
-                    stiffness: 300,
-                    damping: 24,
-                  },
-                },
-              }}
-              whileHover={submitting ? {} : { y: -2, scale: 1.01 }}
-              whileTap={submitting ? {} : { scale: 0.98 }}
-              onClick={handleSubmit}
-              disabled={submitting}
-              className="w-full py-4 rounded-xl text-sm font-bold bg-gradient-to-br from-primary to-primary-light text-primary-foreground shadow-[var(--shadow-primary)] hover:shadow-[0_12px_36px_hsl(342_80%_53%/0.42)] transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {submitting ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" /> Submitting...
-                </>
-              ) : (
-                <>
-                  <Send className="w-4 h-4" /> Submit Feedback
-                </>
-              )}
-            </motion.button>
-          </motion.div>
-        </div>
+                  {!locked && (
+                    <div className="flex justify-end mt-4">
+                      <motion.button
+                        whileHover={isSubmitting ? {} : { y: -2, scale: 1.02 }}
+                        whileTap={isSubmitting ? {} : { scale: 0.97 }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleQuestionSubmit(q);
+                        }}
+                        disabled={isSubmitting || !isAnswered(answers[q.id])}
+                        className="px-6 py-2.5 rounded-xl text-sm font-bold bg-gradient-to-br from-primary to-primary-light text-primary-foreground shadow-[var(--shadow-primary)] hover:shadow-[0_12px_36px_hsl(342_80%_53%/0.42)] transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                      >
+                        {isSubmitting ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />{" "}
+                            Submitting...
+                          </>
+                        ) : (
+                          <>
+                            <Send className="w-4 h-4" /> Submit
+                          </>
+                        )}
+                      </motion.button>
+                    </div>
+                  )}
+              </motion.div>
+            </div>
+          );
+        })()
       )}
     </div>
   );

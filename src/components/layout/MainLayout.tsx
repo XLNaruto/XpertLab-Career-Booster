@@ -35,6 +35,9 @@ const MainLayout = () => {
   // Whether the trainee has already submitted feedback. While unknown we keep
   // it false so the option is hidden until we confirm it is still pending.
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(true);
+  // Whether the trainee has any exams. Hidden until the list confirms at least
+  // one exam is assigned.
+  const [hasExams, setHasExams] = useState(false);
 
   const handleLogout = () => {
     clearCookies();
@@ -79,17 +82,38 @@ const MainLayout = () => {
     }
   };
 
+  // Fetch the exam list so the nav can hide the Exam option when the trainee
+  // has no exams assigned. Re-checked on route changes.
+  const fetchExamStatus = async () => {
+    const response: any = await postData(
+      "private/trainee/exam/list",
+      {},
+      apiHeader(false, 0),
+    );
+    if (
+      String(response?.status) === "200" &&
+      String(response.data?.status) === "200"
+    ) {
+      const d = response.data.data || {};
+      const exams = Array.isArray(d) ? d : d.list || [];
+      setHasExams(exams.length > 0);
+    }
+  };
+
   useEffect(() => {
     fetchProfile();
   }, []);
 
   useEffect(() => {
     fetchFeedbackStatus();
+    fetchExamStatus();
   }, [location.pathname]);
 
-  const visibleNavItems = navItems.filter(
-    (item) => item.path !== "/feedback" || !feedbackSubmitted,
-  );
+  const visibleNavItems = navItems.filter((item) => {
+    if (item.path === "/feedback") return !feedbackSubmitted;
+    if (item.path === "/exam") return hasExams;
+    return true;
+  });
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });

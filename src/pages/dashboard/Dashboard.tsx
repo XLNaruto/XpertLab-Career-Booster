@@ -821,7 +821,7 @@ const Dashboard = () => {
                 </div>
               </div>
               <div>
-                <h2 className="text-lg font-bold text-foreground leading-tight">Profile Strength</h2>
+                <h2 className="text-lg font-bold text-foreground leading-tight">Profile Completion</h2>
                 <p className="text-[12.5px] text-muted-foreground mt-0.5">
                   {completedSections} of {profileSections.length} sections completed
                 </p>
