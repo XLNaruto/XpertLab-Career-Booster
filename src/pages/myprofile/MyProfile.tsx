@@ -82,6 +82,9 @@ const MyProfile = () => {
       stateId: "",
       cityId: "",
       address: "",
+      permanentStateId: "",
+      permanentCityId: "",
+      permanentAddress: "",
       guardians: [
         {
           traineeguardiandetailId: "",
@@ -155,6 +158,13 @@ const MyProfile = () => {
         stateId: data.stateId ? String(data.stateId) : "",
         cityId: data.cityId ? String(data.cityId) : "",
         address: data.address || "",
+        permanentStateId: data.permanentStateId
+          ? String(data.permanentStateId)
+          : "",
+        permanentCityId: data.permanentCityId
+          ? String(data.permanentCityId)
+          : "",
+        permanentAddress: data.permanentAddress || "",
         aadharNumber: data.aadharcardNumber || "",
       });
 
@@ -197,9 +207,6 @@ const MyProfile = () => {
     }
     if (activeTab === "Course Details" && courseRef.current) {
       return courseRef.current.save();
-    }
-    if (activeTab === "Documents" && documentsRef.current) {
-      return documentsRef.current.save();
     }
     return true;
   };
@@ -391,7 +398,9 @@ const MyProfile = () => {
                     onClick={handleNext}
                     className="px-8 py-2.5 bg-gradient-to-br from-primary to-primary-light text-primary-foreground rounded-xl text-sm font-bold shadow-[var(--shadow-primary)] hover:shadow-[0_12px_36px_hsl(342_80%_53%/0.5)] hover:-translate-y-0.5 transition-all duration-300"
                   >
-                    {activeTab === "Course Details" ? "Next" : "Save & Next"}
+                    {activeTab === "Course Details" || activeTab === "Documents"
+                      ? "Next"
+                      : "Save & Next"}
                   </button>
                 )}
               </div>

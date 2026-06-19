@@ -43,9 +43,14 @@ export interface RegisterFormData {
   confirmPassword: string;
 
   // Step 2: Location Details
+  // Current address
   stateId: string;
   cityId: string;
   address: string;
+  // Permanent address
+  permanentStateId: string;
+  permanentCityId: string;
+  permanentAddress: string;
 
   // Step 3: Guardian Details
   guardians: Guardian[];

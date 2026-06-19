@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useOutletContext } from "react-router-dom";
+import { Link, useNavigate, useOutletContext } from "react-router-dom";
 import { apiHeader, postData } from "@/utils/ApiHelper";
 import { toasterrormsg, toastsuccessmsg } from "@/utils/reusable";
 import {
@@ -78,6 +78,7 @@ const Feedback = () => {
   const { refreshFeedbackStatus } = useOutletContext<{
     refreshFeedbackStatus?: () => void;
   }>();
+  const navigate = useNavigate();
 
   const [questions, setQuestions] = useState<Question[]>([]);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -103,6 +104,12 @@ const Feedback = () => {
       String(response.data?.status) === "200"
     ) {
       const data = response.data.data || {};
+      // If the trainee has already submitted feedback, there's nothing to
+      // answer here — send them back to the dashboard (e.g. on refresh).
+      if (data.isFeedbackSubmitted) {
+        navigate("/dashboard", { replace: true });
+        return;
+      }
       const list: ApiQuestion[] = data.questions || [];
       setQuestions(list.map(toQuestion));
       // Seed any answers the API already has stored for this trainee.

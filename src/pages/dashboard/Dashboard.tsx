@@ -2,12 +2,15 @@ import { Link } from "react-router-dom";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { motion, useInView } from "motion/react";
 import WelcomePopup from "@/components/WelcomePopup";
-import { CalendarDays, CheckCircle2, XCircle, TrendingUp, Clock, Star, PartyPopper, ChevronLeft, ChevronRight, GraduationCap, Circle } from "lucide-react";
+import { CalendarDays, CheckCircle2, XCircle, TrendingUp, Clock, Star, PartyPopper, ChevronLeft, ChevronRight, GraduationCap, Circle, Laptop, Sparkles } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Calendar, momentLocalizer, type ToolbarProps } from "react-big-calendar";
 import moment from "moment";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import { PieChart, Pie, Cell, RadialBarChart, RadialBar, PolarAngleAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { Swiper, SwiperSlide } from "swiper/react";
+import { Autoplay } from "swiper/modules";
+import "swiper/css";
 import { apiHeader, postData } from "@/utils/ApiHelper";
 import { getEncodedCookie, toasterrormsg } from "@/utils/reusable";
 
@@ -93,8 +96,52 @@ type DashboardCalendar = {
   holidays: { holidayId: string; name: string; from: string; to: string }[];
 };
 
+// Shape of a single advertised course (from coursedetail/advertise)
+type AdvertiseCourse = {
+  coursedurationId: string;
+  courseId: string;
+  duration: number;
+  courseFees: number;
+  certificateFees: number;
+  description: string;
+  laptopRequired: number;
+  courseName: string;
+  isCoursePurchased: boolean;
+  technologies?: { technologyId: number; name: string; learningOrder: number }[];
+};
+
 // react-big-calendar localizer
 const localizer = momentLocalizer(moment);
+
+// Break a day count into a readable "X month Y week Z day" string
+// (1 month = 4 weeks = 28 days, 1 week = 7 days).
+const formatDuration = (totalDays: number): string => {
+  const days = Math.max(0, Math.round(totalDays || 0));
+  if (days === 0) return "0 day";
+  const months = Math.floor(days / 28);
+  const weeks = Math.floor((days % 28) / 7);
+  const remDays = days % 7;
+  const parts: string[] = [];
+  if (months) parts.push(`${months} month`);
+  if (weeks) parts.push(`${weeks} week`);
+  if (remDays) parts.push(`${remDays} day`);
+  return parts.join(" ");
+};
+
+// Compact Indian-rupee formatting so big fees fit the small ribbon.
+// < 1 lakh -> full (₹15,000); >= 1 lakh -> ₹2.5L; >= 1 crore -> ₹1.2Cr.
+const formatFeeCompact = (amount: number): string => {
+  const n = Number(amount || 0);
+  if (n >= 1_00_00_000) {
+    const v = n / 1_00_00_000;
+    return `₹${Number.isInteger(v) ? v : v.toFixed(1)}Cr`;
+  }
+  if (n >= 1_00_000) {
+    const v = n / 1_00_000;
+    return `₹${Number.isInteger(v) ? v : v.toFixed(1)}L`;
+  }
+  return `₹${n.toLocaleString("en-IN")}`;
+};
 
 // Typewriter text reveal hook
 const useTypewriter = (text: string, speed = 60, delay = 300) => {
@@ -461,6 +508,7 @@ const Dashboard = () => {
   const [attendanceHeight, setAttendanceHeight] = useState<number | undefined>(undefined);
   const [analysis, setAnalysis] = useState<DashboardAnalysis>(emptyAnalysis);
   const [calendar, setCalendar] = useState<DashboardCalendar | null>(null);
+  const [advertiseCourses, setAdvertiseCourses] = useState<AdvertiseCourse[]>([]);
 
   // Raw data used to compute the profile-completion checklist
   const [personalData, setPersonalData] = useState<any>(null);
@@ -567,6 +615,30 @@ const Dashboard = () => {
     }
   };
 
+  const advertiseApiCall = async () => {
+    const response: any = await postData(
+      "private/trainee/coursedetail/advertise",
+      {},
+      apiHeader(false, 0)
+    );
+    const payload = response?.data;
+    const list: AdvertiseCourse[] = Array.isArray(payload)
+      ? payload
+      : Array.isArray(payload?.data)
+        ? payload.data
+        : [];
+    // The API can return the same duration more than once — keep one per
+    // coursedurationId.
+    const seen = new Set<string>();
+    const unique = list.filter((c) => {
+      const key = String(c.coursedurationId);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    setAdvertiseCourses(unique);
+  };
+
   const dashboardCalendarApiCall = async (month: number, year: number) => {
     const response: any = await postData(
       "private/trainee/dashboard/calendar",
@@ -586,6 +658,7 @@ const Dashboard = () => {
   useEffect(() => {
     dashboardAnalysisApiCall();
     dashboardCalendarApiCall(moment().month() + 1, moment().year());
+    advertiseApiCall();
   }, []);
 
   const { trainingProgress, attendance, training, course } = analysis;
@@ -644,6 +717,12 @@ const Dashboard = () => {
     total: c.total,
     pending: Math.max(0, c.total - c.completed),
   }));
+
+  // Courses to advertise — show the ones the trainee hasn't purchased yet
+  // first, so the upsell stands out.
+  const sortedCourses = [...advertiseCourses].sort(
+    (a, b) => Number(a.isCoursePurchased) - Number(b.isCoursePurchased),
+  );
 
   const attendanceStats: StatCard[] = [
     { label: "Total Days", value: attendance.totalDays, icon: <CalendarDays className="w-5 h-5" />, iconBg: "bg-secondary/10 text-secondary" },
@@ -1200,6 +1279,119 @@ const Dashboard = () => {
               )}
             </motion.div>
           </div>
+
+          {/* Explore More Courses */}
+          {sortedCourses.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.3 }}
+              className="mt-5 bg-white/[0.6] border border-white/[0.88] rounded-2xl p-7 backdrop-blur-[20px] shadow-[var(--shadow-sm)]"
+            >
+              <div className="flex items-center justify-between mb-1">
+                <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-primary" />
+                  Explore More Courses
+                </h2>
+              </div>
+              <p className="text-[12px] text-muted-foreground mb-5">
+                Level up your skills with our other training programs
+              </p>
+
+              <Swiper
+                modules={[Autoplay]}
+                spaceBetween={16}
+                slidesPerView={1}
+                loop={sortedCourses.length > 1}
+                autoplay={{
+                  delay: 2500,
+                  disableOnInteraction: false,
+                  pauseOnMouseEnter: true,
+                }}
+                breakpoints={{
+                  640: { slidesPerView: 2 },
+                  1024: { slidesPerView: 3 },
+                }}
+                className="!py-3 !px-1 !-mx-1"
+              >
+                {sortedCourses.map((c, i) => (
+                  <SwiperSlide key={`${c.coursedurationId}-${i}`} className="h-auto">
+                    <div
+                      className={`relative overflow-hidden flex flex-col h-full rounded-2xl p-5 border hover:shadow-[var(--shadow-sm)] hover:-translate-y-1 transition-all duration-200 ${
+                        c.isCoursePurchased
+                          ? "bg-green-500/[0.07] border-green-500/25"
+                          : "bg-secondary/[0.06] border-secondary/25"
+                      }`}
+                    >
+                      {/* Corner price ribbon */}
+                      <div className="absolute top-0 right-0 w-28 h-28 overflow-hidden pointer-events-none z-10">
+                        <div className="absolute top-[20px] right-[-40px] w-[150px] rotate-45 bg-gradient-to-r from-secondary to-secondary/80 text-white text-center text-[12px] font-bold py-1 shadow-[0_2px_8px_rgba(0,0,0,0.18)] whitespace-nowrap">
+                          {formatFeeCompact(c.courseFees)}
+                        </div>
+                      </div>
+
+                      {/* Header: icon + duration + status */}
+                      <div className="flex items-center gap-2 mb-3 pr-8 flex-wrap">
+                        <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-primary/15 to-secondary/15 flex items-center justify-center shrink-0">
+                          <GraduationCap className="w-6 h-6 text-primary" />
+                        </div>
+                        <span className="inline-flex items-center gap-1 text-[10.5px] font-semibold px-2.5 py-1 rounded-full bg-secondary/10 text-secondary">
+                          <Clock className="w-3 h-3" />
+                          {formatDuration(c.duration)}
+                        </span>
+                        {c.isCoursePurchased && (
+                          <span className="inline-flex items-center gap-1 text-[10.5px] font-semibold px-2.5 py-1 rounded-full bg-green-500/10 text-green-600">
+                            <CheckCircle2 className="w-3 h-3" />
+                            Purchased
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Title */}
+                      <h3 className="text-[14.5px] font-bold text-foreground leading-snug mb-1.5">
+                        {c.courseName}
+                      </h3>
+
+                      {/* Technologies */}
+                      {c.technologies && c.technologies.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mb-4">
+                          {[...c.technologies]
+                            .sort((a, b) => a.learningOrder - b.learningOrder)
+                            .map((t, ti) => {
+                              const palette = [
+                                "bg-blue-500/10 text-blue-600 border-blue-500/20",
+                                "bg-purple-500/10 text-purple-600 border-purple-500/20",
+                                "bg-amber-500/10 text-amber-600 border-amber-500/20",
+                                "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
+                                "bg-pink-500/10 text-pink-600 border-pink-500/20",
+                                "bg-cyan-500/10 text-cyan-600 border-cyan-500/20",
+                              ];
+                              return (
+                                <span
+                                  key={t.technologyId}
+                                  className={`inline-flex items-center text-[10.5px] font-medium px-2 py-0.5 rounded-md border ${palette[ti % palette.length]}`}
+                                >
+                                  {t.name}
+                                </span>
+                              );
+                            })}
+                        </div>
+                      )}
+
+                      {/* Footer: laptop note */}
+                      <div className="flex items-center justify-between gap-2 mt-auto">
+                        {c.laptopRequired === 1 && (
+                          <span className="inline-flex items-center gap-1 text-[10.5px] text-muted-foreground">
+                            <Laptop className="w-3.5 h-3.5" /> Laptop required
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </SwiperSlide>
+                ))}
+              </Swiper>
+            </motion.div>
+          )}
         </div>
     </>
   );

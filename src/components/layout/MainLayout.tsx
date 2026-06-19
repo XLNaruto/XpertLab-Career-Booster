@@ -78,7 +78,7 @@ const MainLayout = () => {
       String(response?.status) === "200" &&
       String(response.data?.status) === "200"
     ) {
-      setFeedbackSubmitted(!!response.data.data?.submitted);
+      setFeedbackSubmitted(!!response.data.data?.isFeedbackSubmitted);
     }
   };
 

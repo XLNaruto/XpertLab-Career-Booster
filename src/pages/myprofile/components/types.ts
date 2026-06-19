@@ -40,9 +40,14 @@ export interface ProfileFormData {
   confirmPassword: string;
 
   // Location Details
+  // Current address
   stateId: string;
   cityId: string;
   address: string;
+  // Permanent address
+  permanentStateId: string;
+  permanentCityId: string;
+  permanentAddress: string;
 
   // Guardian Details
   guardians: Guardian[];

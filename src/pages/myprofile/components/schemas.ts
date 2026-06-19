@@ -207,6 +207,9 @@ export const locationDetailsSchema = z.object({
   stateId: z.string().trim().min(1, "Please Select State"),
   cityId: z.string().trim().min(1, "Please Select City"),
   address: z.string().trim().min(1, "Address Is Required"),
+  permanentStateId: z.string().trim().min(1, "Please Select State"),
+  permanentCityId: z.string().trim().min(1, "Please Select City"),
+  permanentAddress: z.string().trim().min(1, "Address Is Required"),
 });
 
 export type LocationDetailsValues = z.infer<typeof locationDetailsSchema>;
