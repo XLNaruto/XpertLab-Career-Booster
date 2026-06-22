@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { ChevronRight, FileText, Play, RotateCw, CheckCircle2, Ban, Clock, ListChecks, PackageOpen, Sparkles, ArrowLeft, Loader2, Award } from "lucide-react";
 import { motion } from "framer-motion";
 import { apiHeader, postData } from "@/utils/ApiHelper";
-import { encryptUrlData, toasterrormsg } from "@/utils/reusable";
+import { encryptUrlData, getEncodedCookie, toasterrormsg } from "@/utils/reusable";
 
 // Shape of a single exam returned by the exam list API.
 type ApiExam = {
@@ -77,11 +77,23 @@ const Exam = () => {
       })}`,
     );
 
-  // Start (or resume) an exam. A fresh exam is flagged STARTED first; one that
-  // is already in progress just navigates — no second updateStatus call.
+  // Whether the exam-detail intro tour has already been shown today. When it
+  // hasn't, the tour plays on the detail screen and the exam (STARTED + timer)
+  // is begun only after it finishes — so the list defers the updateStatus call.
+  const introSeenToday = () => {
+    const traineeId = getEncodedCookie("traineeId") || "guest";
+    const today = new Date().toISOString().slice(0, 10);
+    return !!localStorage.getItem(`exam-intro-seen:${traineeId}:${today}`);
+  };
+
+  // Start (or resume) an exam.
+  // - Already in progress (STARTED) → just navigate.
+  // - Intro not seen yet → navigate without starting; the detail screen flags
+  //   STARTED once the intro finishes (so the timer doesn't run during it).
+  // - Intro already seen → flag STARTED here, then navigate (the timer starts).
   const handleStart = async (exam: ApiExam) => {
     if (startingId) return;
-    if (exam.status === "STARTED") {
+    if (exam.status === "STARTED" || !introSeenToday()) {
       goToDetail(exam);
       return;
     }
@@ -232,20 +244,20 @@ const Exam = () => {
                   </p>
                 )}
 
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] text-muted-foreground mb-5 mt-auto pt-3">
+                <div className="flex flex-wrap items-center gap-2 text-[11px] mb-5 mt-auto pt-3">
                   {exam.totalQuestions != null && (
-                    <span className="inline-flex items-center gap-1.5">
-                      <ListChecks className="w-3.5 h-3.5" /> {exam.totalQuestions} Questions
+                    <span className="exam-metric-badge inline-flex items-center gap-1.5 rounded-full border border-sky-500/20 bg-sky-500/10 px-2.5 py-1 font-bold text-sky-600">
+                      <ListChecks className="w-3.5 h-3.5" /> <span className="font-bold tabular-nums">{exam.totalQuestions}</span> Questions
                     </span>
                   )}
                   {exam.duration != null && (
-                    <span className="inline-flex items-center gap-1.5">
-                      <Clock className="w-3.5 h-3.5" /> {exam.duration} min
+                    <span className="exam-metric-badge inline-flex items-center gap-1.5 rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 font-bold text-amber-600" style={{ animationDelay: "0.15s" }}>
+                      <Clock className="w-3.5 h-3.5" /> <span className="font-bold tabular-nums">{exam.duration}</span> min
                     </span>
                   )}
                   {exam.totalMarks != null && (
-                    <span className="inline-flex items-center gap-1.5">
-                      <Award className="w-3.5 h-3.5" /> {exam.totalMarks} Marks
+                    <span className="exam-metric-badge inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 font-bold text-emerald-600" style={{ animationDelay: "0.3s" }}>
+                      <Award className="w-3.5 h-3.5" /> <span className="font-bold tabular-nums">{exam.totalMarks}</span> Marks
                     </span>
                   )}
                 </div>

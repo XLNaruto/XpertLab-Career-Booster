@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   ChevronRight,
@@ -14,10 +15,12 @@ import {
   TimerOff,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import introJs from "intro.js";
+import "intro.js/introjs.css";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Progress } from "@/components/ui/progress";
 import { apiHeader, postData } from "@/utils/ApiHelper";
-import { decryptUrlData, toasterrormsg } from "@/utils/reusable";
+import { decryptUrlData, getEncodedCookie, toasterrormsg, toastsuccessmsg } from "@/utils/reusable";
 
 // Format a millisecond duration as M:SS (or H:MM:SS for long exams).
 const formatTime = (ms: number): string => {
@@ -76,6 +79,20 @@ const ExamDetail = () => {
   const [showWarning, setShowWarning] = useState(false);
   const [cooldown, setCooldown] = useState(0);
   const [showStrikeInfo, setShowStrikeInfo] = useState(false);
+  // The strike-info popover is portalled to <body> (the header card's
+  // backdrop-blur clips absolutely-positioned children), so it's anchored to
+  // the button's viewport rect.
+  const strikeBtnRef = useRef<HTMLButtonElement | null>(null);
+  const [strikePos, setStrikePos] = useState<{ top: number; right: number } | null>(null);
+  const toggleStrikeInfo = () =>
+    setShowStrikeInfo((v) => {
+      const next = !v;
+      if (next && strikeBtnRef.current) {
+        const r = strikeBtnRef.current.getBoundingClientRect();
+        setStrikePos({ top: r.bottom + 8, right: window.innerWidth - r.right });
+      }
+      return next;
+    });
 
   const strikesRef = useRef(0);
   const activeRef = useRef(false); // exam in progress (loaded, not finished/terminated)
@@ -89,6 +106,21 @@ const ExamDetail = () => {
   const [timedOut, setTimedOut] = useState(false);
   const deadlineRef = useRef<number | null>(null);
   const timedOutRef = useRef(false);
+
+  // Guided intro tour element refs.
+  const timerRef = useRef<HTMLSpanElement | null>(null);
+  const questionCardRef = useRef<HTMLDivElement | null>(null);
+  const saveBtnRef = useRef<HTMLButtonElement | null>(null);
+  const introShownRef = useRef(false);
+  const tourRef = useRef<ReturnType<typeof introJs.tour> | null>(null);
+
+  // Deferred start: when the exam hasn't been marked STARTED yet (the list
+  // skips that call so the timer doesn't run during the intro), the exam is
+  // begun — STARTED + countdown — only once the intro finishes.
+  const [started, setStarted] = useState(false);
+  const startedRef = useRef(false); // guards beginExam against double-fire
+  const pendingStartRef = useRef(false); // true = needs the STARTED status call
+  const durationRef = useRef(0);
 
   // ── Load detail ────────────────────────────────────────────────────────
   const examDetailApiCall = async () => {
@@ -128,14 +160,23 @@ const ExamDetail = () => {
       // Recomputed on every load, so a refresh resumes at the right time.
       const startedAt = d.examallocation?.startedAt || d.startedAt;
       const durationMin = Number(d.exam?.duration ?? d.duration ?? 0);
+      durationRef.current = durationMin;
+      // The countdown and anti-cheat stay paused until the intro finishes (see
+      // beginExam). Until then we only show a frozen preview of the timer so
+      // the intro can point to it — it never ticks before the intro ends.
       if (startedAt && durationMin > 0) {
+        // Exam already in progress (resume) → deadline is the server's time.
         const start = new Date(startedAt).getTime();
         if (!Number.isNaN(start)) {
           deadlineRef.current = start + durationMin * 60 * 1000;
           setRemainingMs(Math.max(0, deadlineRef.current - Date.now()));
         }
+      } else {
+        // Not started yet → STARTED is flagged only once the intro finishes.
+        // Preview the full duration so the intro can point to the timer.
+        pendingStartRef.current = true;
+        if (durationMin > 0) setRemainingMs(durationMin * 60 * 1000);
       }
-      activeRef.current = true;
     } else {
       toasterrormsg(response?.data?.message || "Something went wrong");
     }
@@ -260,9 +301,36 @@ const ExamDetail = () => {
     setTimedOut(true);
   };
 
+  // Begin the exam — the moment the intro ends (or immediately if the intro has
+  // already been seen today). Switches on the countdown and the anti-cheat, and
+  // for a not-yet-started exam flags STARTED on the server. No-op if already
+  // begun. This is what actually "starts" the timer and termination tracking.
+  const beginExam = () => {
+    if (startedRef.current) return;
+    startedRef.current = true;
+    activeRef.current = true;
+    if (pendingStartRef.current) {
+      // Fresh exam → set the deadline from now and record STARTED server-side.
+      pendingStartRef.current = false;
+      if (durationRef.current > 0) {
+        deadlineRef.current = Date.now() + durationRef.current * 60 * 1000;
+        setRemainingMs(Math.max(0, deadlineRef.current - Date.now()));
+      }
+      postData(
+        "private/trainee/exam/updateStatus",
+        { examallocationId, status: "STARTED" },
+        apiHeader(false, 0),
+      );
+    } else if (deadlineRef.current != null) {
+      // Resume → deadline is already the server's; refresh the displayed value.
+      setRemainingMs(Math.max(0, deadlineRef.current - Date.now()));
+    }
+    setStarted(true);
+  };
+
   // Tick the countdown once per second off the server-derived deadline.
   useEffect(() => {
-    if (loading || deadlineRef.current == null) return;
+    if (loading || !started || deadlineRef.current == null) return;
     const tick = () => {
       const rem = (deadlineRef.current as number) - Date.now();
       setRemainingMs(Math.max(0, rem));
@@ -272,7 +340,126 @@ const ExamDetail = () => {
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading]);
+  }, [loading, started]);
+
+  // ── Guided intro tour (intro.js) ───────────────────────────────────────
+  // Runs once per exam allocation, after questions render. Walks the trainee
+  // through the welcome, timer, question/answer area, the Save button and the
+  // anti-cheat termination rules before they begin answering.
+  useEffect(() => {
+    if (loading || questions.length === 0 || finished || terminated || timedOut) return;
+    if (introShownRef.current) return;
+    // Once per account, per day: scope the key to the trainee + today's date.
+    const traineeId = getEncodedCookie("traineeId") || "guest";
+    const today = new Date().toISOString().slice(0, 10);
+    const seenKey = `exam-intro-seen:${traineeId}:${today}`;
+    // Already seen today → skip the tour and begin the exam straight away.
+    if (localStorage.getItem(seenKey)) {
+      introShownRef.current = true;
+      beginExam();
+      return;
+    }
+
+    // Distinguishes a normal close (✕ / Start Exam → begin the exam) from a
+    // teardown exit on unmount (just remove the overlay, don't start anything).
+    let tearingDown = false;
+
+    // Wait one paint so the timer/question/button refs are mounted & laid out.
+    const t = setTimeout(() => {
+      introShownRef.current = true;
+      const tour = introJs.tour();
+      tourRef.current = tour;
+      tour.setOptions({
+        showProgress: true,
+        showBullets: false,
+        exitOnOverlayClick: false,
+        exitOnEsc: false,
+        scrollToElement: true,
+        overlayOpacity: 0.6,
+        nextLabel: "Next →",
+        prevLabel: "← Back",
+        doneLabel: "Start Exam",
+        tooltipClass: "exam-intro-tooltip",
+        steps: [
+          {
+            title: "👋 Welcome to your exam",
+            intro:
+              `Hi! You're about to start <b>${examName || "your exam"}</b>. ` +
+              "Take a quick 30-second tour so you know exactly how everything works. " +
+              "Once you finish this tour, just start answering — good luck!",
+          },
+          {
+            element: timerRef.current,
+            title: "⏱️ Your countdown timer",
+            intro:
+              "Keep an eye on this timer — it shows the time you have left. " +
+              "It turns red in the final minute, and the exam closes automatically when it reaches zero. " +
+              "Any answers you've saved are kept.",
+            position: "bottom",
+          },
+          {
+            element: questionCardRef.current,
+            title: "📝 Questions & answers",
+            intro:
+              "Read each question here and pick the option you think is correct. " +
+              "Your selection is highlighted. Use the numbered chips above to revisit questions you've already answered.",
+            position: "top",
+          },
+          {
+            element: saveBtnRef.current,
+            title: "💾 Save & move on",
+            intro:
+              "When you're happy with your answer, click <b>Save &amp; Next</b> to record it and move to the next question. " +
+              "On the last question this becomes <b>Save &amp; Finish</b> to submit your exam.",
+            position: "top",
+          },
+          {
+            title: "🚫 Stay in the exam window",
+            intro:
+              "Important: don't switch tabs, minimise, or leave this page during the exam. " +
+              `Each time you do, a ${COOLDOWN_SECONDS}-second countdown starts — if you don't return in time you get a strike. ` +
+              `After <b>${MAX_STRIKES} strikes</b> the exam is terminated automatically. ` +
+              "Stay focused and you'll be fine!",
+          },
+        ],
+      });
+      const markSeen = () => localStorage.setItem(seenKey, "1");
+      // "Start Exam" (done) → begin the exam: mark STARTED, start the timer,
+      // dismiss the tour, scroll to the top and greet the trainee.
+      tour.onComplete(() => {
+        markSeen();
+        beginExam();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        toastsuccessmsg("Exam started — good luck! 🎯");
+      });
+      // Closing via the ✕ also starts the exam (the timer was waiting on the
+      // intro), but silently without the greeting. A teardown exit (unmount)
+      // only removes the overlay — it must not start the exam.
+      tour.onExit(() => {
+        tourRef.current = null;
+        if (tearingDown) return;
+        markSeen();
+        beginExam();
+      });
+      tour.start();
+    }, 350);
+
+    return () => {
+      clearTimeout(t);
+      // Exiting the exam while the tour is open must tear down its body-level
+      // overlay, otherwise it lingers (and stacks on the next visit).
+      if (tourRef.current) {
+        tearingDown = true;
+        try {
+          tourRef.current.exit(true);
+        } catch {
+          /* already gone */
+        }
+        tourRef.current = null;
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, questions.length, finished, terminated, timedOut]);
 
   // After termination/timeout, bounce back to the exam list.
   useEffect(() => {
@@ -528,8 +715,9 @@ const ExamDetail = () => {
               {strikes > 0 && (
                 <div className="relative">
                   <motion.button
+                    ref={strikeBtnRef}
                     type="button"
-                    onClick={() => setShowStrikeInfo((v) => !v)}
+                    onClick={toggleStrikeInfo}
                     animate={{
                       scale: [1, 1.06, 1],
                       opacity: [1, 0.55, 1],
@@ -545,45 +733,50 @@ const ExamDetail = () => {
                     <AlertTriangle className="w-3.5 h-3.5" /> {strikes}/{MAX_STRIKES} strikes
                   </motion.button>
 
-                  <AnimatePresence>
-                    {showStrikeInfo && (
-                      <>
-                        {/* click-away layer */}
-                        <div
-                          className="fixed inset-0 z-[95]"
-                          onClick={() => setShowStrikeInfo(false)}
-                        />
-                        <motion.div
-                          initial={{ opacity: 0, y: -6, scale: 0.96 }}
-                          animate={{ opacity: 1, y: 0, scale: 1 }}
-                          exit={{ opacity: 0, y: -6, scale: 0.96 }}
-                          transition={{ duration: 0.18 }}
-                          className="absolute right-0 top-full mt-2 z-[96] w-[min(18rem,calc(100vw-2.5rem))] origin-top-right rounded-2xl border border-white/[0.9] bg-white p-4 text-left shadow-2xl"
-                        >
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-red-500/10 text-red-600">
-                              <AlertTriangle className="w-4 h-4" />
-                            </span>
-                            <p className="text-[13px] font-bold text-foreground">
-                              {strikes} of {MAX_STRIKES} strikes used
+                  {createPortal(
+                    <AnimatePresence>
+                      {showStrikeInfo && (
+                        <>
+                          {/* click-away layer */}
+                          <div
+                            className="fixed inset-0 z-[95]"
+                            onClick={() => setShowStrikeInfo(false)}
+                          />
+                          <motion.div
+                            initial={{ opacity: 0, y: -6, scale: 0.96 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: -6, scale: 0.96 }}
+                            transition={{ duration: 0.18 }}
+                            style={{ top: strikePos?.top ?? 0, right: strikePos?.right ?? 0 }}
+                            className="fixed z-[96] w-[min(18rem,calc(100vw-2.5rem))] origin-top-right rounded-2xl border border-white/[0.9] bg-white p-4 text-left shadow-2xl"
+                          >
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="flex items-center justify-center w-7 h-7 rounded-lg bg-red-500/10 text-red-600">
+                                <AlertTriangle className="w-4 h-4" />
+                              </span>
+                              <p className="text-[13px] font-bold text-foreground">
+                                {strikes} of {MAX_STRIKES} strikes used
+                              </p>
+                            </div>
+                            <p className="text-[12px] text-muted-foreground leading-relaxed">
+                              Leaving the exam — switching tabs, losing focus, or moving to another page — starts a {COOLDOWN_SECONDS}-second countdown. If you don't return in time, you get a strike.
                             </p>
-                          </div>
-                          <p className="text-[12px] text-muted-foreground leading-relaxed">
-                            Leaving the exam — switching tabs, losing focus, or moving to another page — starts a {COOLDOWN_SECONDS}-second countdown. If you don't return in time, you get a strike.
-                          </p>
-                          <p className="text-[12px] text-muted-foreground leading-relaxed mt-2">
-                            After <span className="font-semibold text-red-600">{MAX_STRIKES} strikes</span> the exam is terminated automatically. You have{" "}
-                            <span className="font-semibold text-foreground">{Math.max(0, MAX_STRIKES - strikes)}</span>{" "}
-                            {MAX_STRIKES - strikes === 1 ? "strike" : "strikes"} left.
-                          </p>
-                        </motion.div>
-                      </>
-                    )}
-                  </AnimatePresence>
+                            <p className="text-[12px] text-muted-foreground leading-relaxed mt-2">
+                              After <span className="font-semibold text-red-600">{MAX_STRIKES} strikes</span> the exam is terminated automatically. You have{" "}
+                              <span className="font-semibold text-foreground">{Math.max(0, MAX_STRIKES - strikes)}</span>{" "}
+                              {MAX_STRIKES - strikes === 1 ? "strike" : "strikes"} left.
+                            </p>
+                          </motion.div>
+                        </>
+                      )}
+                    </AnimatePresence>,
+                    document.body,
+                  )}
                 </div>
               )}
               {remainingMs != null && (
                 <span
+                  ref={timerRef}
                   className={`inline-flex items-center gap-1.5 text-sm font-bold px-3 py-1.5 rounded-xl tabular-nums transition-colors ${
                     remainingMs <= 60_000
                       ? "bg-red-500/15 text-red-600 animate-pulse"
@@ -649,7 +842,7 @@ const ExamDetail = () => {
             </div>
 
             {/* Current question */}
-            <div className="bg-white/[0.6] border border-white/[0.88] rounded-2xl p-7 backdrop-blur-[20px] shadow-[var(--shadow-sm)]">
+            <div ref={questionCardRef} className="bg-white/[0.6] border border-white/[0.88] rounded-2xl p-7 backdrop-blur-[20px] shadow-[var(--shadow-sm)]">
                 <div className="flex items-start gap-3 mb-6">
                   <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-secondary to-secondary/70 flex items-center justify-center text-white text-sm font-bold shrink-0 shadow-sm">
                     {current + 1}
@@ -709,6 +902,7 @@ const ExamDetail = () => {
               </button>
 
               <button
+                ref={saveBtnRef}
                 onClick={handleSaveNext}
                 disabled={saving || !q.selected}
                 title={!q.selected ? "Select an answer to continue" : undefined}

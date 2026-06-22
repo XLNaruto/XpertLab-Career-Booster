@@ -68,10 +68,8 @@ const typeColors = {
   single: "from-secondary to-secondary/70",
 };
 
-const typeBadge = {
-  descriptive: { label: "Written Response", bg: "bg-primary/10 text-primary" },
-  single: { label: "Single Choice", bg: "bg-secondary/10 text-secondary" },
-};
+// Minimum characters required for a descriptive (written) answer.
+const MIN_DESCRIPTIVE = 50;
 
 const Feedback = () => {
   // Refresh the nav's feedback status (provided by MainLayout) after submit.
@@ -142,6 +140,11 @@ const Feedback = () => {
 
   const isAnswered = (v: string | undefined) => !!v && v.trim() !== "";
 
+  // A descriptive answer must also meet the minimum length to be valid.
+  const isValidAnswer = (q: Question, v: string | undefined) =>
+    isAnswered(v) &&
+    (q.type !== "descriptive" || (v || "").trim().length >= MIN_DESCRIPTIVE);
+
   const answeredCount = Object.keys(answers).filter((k) =>
     isAnswered(answers[k]),
   ).length;
@@ -160,7 +163,7 @@ const Feedback = () => {
   // Submit a single question. We post the full array of all answered
   // questions (the existing API contract is unchanged) and lock this one.
   const handleQuestionSubmit = async (q: Question) => {
-    if (!isAnswered(answers[q.id]) || lockedIds.has(q.id)) {
+    if (!isValidAnswer(q, answers[q.id]) || lockedIds.has(q.id)) {
       // Flash the question border if it has no answer yet.
       setHighlightIds([q.id]);
       setTimeout(() => setHighlightIds([]), 1500);
@@ -355,7 +358,6 @@ const Feedback = () => {
           const idx = Math.min(activeQuestion, questions.length - 1);
           const q = questions[idx];
           if (!q) return null;
-          const badge = typeBadge[q.type];
           const flash = highlightIds.includes(q.id);
           const locked = lockedIds.has(q.id);
           const isSubmitting = submittingId === q.id;
@@ -429,17 +431,11 @@ const Feedback = () => {
                       </h3>
                     </div>
                   </div>
-                  {locked ? (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1 rounded-full shrink-0 ml-3 bg-green-500/10 text-green-600">
-                        <CheckCircle2 className="w-3 h-3" /> Submitted
-                      </span>
-                    ) : (
-                      <span
-                        className={`text-[10px] font-semibold px-2.5 py-1 rounded-full shrink-0 ml-3 ${badge.bg}`}
-                      >
-                        {badge.label}
-                      </span>
-                    )}
+                  {locked && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1 rounded-full shrink-0 ml-3 bg-green-500/10 text-green-600">
+                      <CheckCircle2 className="w-3 h-3" /> Submitted
+                    </span>
+                  )}
                   </div>
 
                   {q.type === "descriptive" &&
@@ -448,15 +444,43 @@ const Feedback = () => {
                         {answers[q.id]}
                       </div>
                     ) : (
-                      <textarea
-                        value={(answers[q.id] as string) || ""}
-                        onChange={(e) =>
-                          handleDescriptiveChange(q.id, e.target.value)
-                        }
-                        placeholder="Type your answer here..."
-                        rows={3}
-                        className="w-full rounded-xl border border-foreground/[0.08] bg-white/[0.5] px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/30 resize-none transition-all"
-                      />
+                      (() => {
+                        const len = ((answers[q.id] as string) || "").trim()
+                          .length;
+                        const ok = len >= MIN_DESCRIPTIVE;
+                        return (
+                          <div>
+                            <textarea
+                              value={(answers[q.id] as string) || ""}
+                              onChange={(e) => {
+                                handleDescriptiveChange(q.id, e.target.value);
+                                // Auto-grow: fit height to content, no scrollbar.
+                                e.target.style.height = "auto";
+                                e.target.style.height = `${e.target.scrollHeight}px`;
+                              }}
+                              ref={(el) => {
+                                // Size correctly on mount / when value restores.
+                                if (el) {
+                                  el.style.height = "auto";
+                                  el.style.height = `${el.scrollHeight}px`;
+                                }
+                              }}
+                              placeholder="Type your answer here..."
+                              rows={3}
+                              className="w-full min-h-[88px] overflow-hidden rounded-xl border border-foreground/[0.08] bg-white/[0.5] px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/30 resize-none transition-all"
+                            />
+                            <div className="flex justify-end mt-1">
+                              <span
+                                className={`text-[11px] font-semibold tabular-nums ${
+                                  ok ? "text-green-600" : "text-muted-foreground"
+                                }`}
+                              >
+                                {len}/{MIN_DESCRIPTIVE}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })()
                     ))}
 
                   {q.type === "single" && q.options && (
@@ -495,7 +519,7 @@ const Feedback = () => {
                           e.stopPropagation();
                           handleQuestionSubmit(q);
                         }}
-                        disabled={isSubmitting || !isAnswered(answers[q.id])}
+                        disabled={isSubmitting || !isValidAnswer(q, answers[q.id])}
                         className="px-6 py-2.5 rounded-xl text-sm font-bold bg-gradient-to-br from-primary to-primary-light text-primary-foreground shadow-[var(--shadow-primary)] hover:shadow-[0_12px_36px_hsl(342_80%_53%/0.42)] transition-all duration-300 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
                       >
                         {isSubmitting ? (

@@ -2,14 +2,16 @@ import { Link } from "react-router-dom";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { motion, useInView } from "motion/react";
 import WelcomePopup from "@/components/WelcomePopup";
-import { CalendarDays, CheckCircle2, XCircle, TrendingUp, Clock, Star, PartyPopper, ChevronLeft, ChevronRight, GraduationCap, Circle, Laptop, Sparkles } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import DailyGreetingPopup from "@/components/DailyGreetingPopup";
+import { CalendarDays, CheckCircle2, XCircle, TrendingUp, Clock, Star, PartyPopper, ChevronLeft, ChevronRight, GraduationCap, Circle, Laptop, Sparkles, Info, IndianRupee } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Calendar, momentLocalizer, type ToolbarProps } from "react-big-calendar";
 import moment from "moment";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import { PieChart, Pie, Cell, RadialBarChart, RadialBar, PolarAngleAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Autoplay } from "swiper/modules";
+import type { Swiper as SwiperClass } from "swiper/types";
 import "swiper/css";
 import { apiHeader, postData } from "@/utils/ApiHelper";
 import { getEncodedCookie, toasterrormsg } from "@/utils/reusable";
@@ -505,10 +507,12 @@ const Dashboard = () => {
   const greeting = firstName ? `${timeGreeting}, ${firstName}` : timeGreeting;
   const { displayed, done } = useTypewriter(greeting, 55, 400);
   const attendanceRef = useRef<HTMLDivElement>(null);
+  const courseSwiperRef = useRef<SwiperClass | null>(null);
   const [attendanceHeight, setAttendanceHeight] = useState<number | undefined>(undefined);
   const [analysis, setAnalysis] = useState<DashboardAnalysis>(emptyAnalysis);
   const [calendar, setCalendar] = useState<DashboardCalendar | null>(null);
   const [advertiseCourses, setAdvertiseCourses] = useState<AdvertiseCourse[]>([]);
+  const [selectedCourse, setSelectedCourse] = useState<AdvertiseCourse | null>(null);
 
   // Raw data used to compute the profile-completion checklist
   const [personalData, setPersonalData] = useState<any>(null);
@@ -724,6 +728,16 @@ const Dashboard = () => {
     (a, b) => Number(a.isCoursePurchased) - Number(b.isCoursePurchased),
   );
 
+  // Swiper only loops when there are more slides than fit on screen (max 3 per
+  // view). Repeat the list so the carousel always loops infinitely & seamlessly.
+  const loopCourses =
+    sortedCourses.length === 0
+      ? []
+      : Array.from(
+          { length: Math.ceil(6 / sortedCourses.length) },
+          () => sortedCourses,
+        ).flat();
+
   const attendanceStats: StatCard[] = [
     { label: "Total Days", value: attendance.totalDays, icon: <CalendarDays className="w-5 h-5" />, iconBg: "bg-secondary/10 text-secondary" },
     { label: "Present Days", value: attendance.presentDays, icon: <CheckCircle2 className="w-5 h-5" />, iconBg: "bg-green-500/10 text-green-500" },
@@ -772,6 +786,7 @@ const Dashboard = () => {
   return (
     <>
       <WelcomePopup />
+      <DailyGreetingPopup name={firstName} />
       <div className="flex-1 px-10 pb-10">
           {/* Greeting */}
           <div className="mb-8">
@@ -861,6 +876,37 @@ const Dashboard = () => {
                     <p className="text-[11px] text-muted-foreground mt-1.5">
                       Duration: <span className="font-semibold text-foreground">{Math.max(0, moment(course.endDate).diff(moment(course.startDate), "weeks"))} weeks</span>
                     </p>
+                    <motion.div
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.4, delay: 1.1 }}
+                      className="relative overflow-hidden mt-2.5 rounded-xl border border-indigo-500/30 bg-gradient-to-r from-indigo-500/10 via-indigo-400/10 to-indigo-500/10 px-3 py-2"
+                    >
+                      {/* Animated shimmer sweep */}
+                      <motion.span
+                        aria-hidden
+                        initial={{ x: "-120%" }}
+                        animate={{ x: "120%" }}
+                        transition={{ duration: 2.4, repeat: Infinity, repeatDelay: 1.6, ease: "easeInOut" }}
+                        className="pointer-events-none absolute inset-y-0 left-0 w-1/3 bg-gradient-to-r from-transparent via-white/40 to-transparent"
+                      />
+                      <p className="relative text-[11px] text-indigo-700 flex items-start gap-1.5">
+                        <motion.span
+                          animate={{ scale: [1, 1.18, 1] }}
+                          transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+                          className="shrink-0 mt-0.5"
+                        >
+                          <Info className="w-3.5 h-3.5" />
+                        </motion.span>
+                        <span>
+                          The mentioned end date{" "}
+                          <span className="font-bold px-1 py-0.5 rounded-md bg-indigo-500/15 text-indigo-700">
+                            {moment(course.endDate).format("DD MMM YYYY")}
+                          </span>{" "}
+                          will be considered as your course completion date.
+                        </span>
+                      </p>
+                    </motion.div>
                   </>
                 ) : (
                   <p className="text-[12.5px] text-muted-foreground leading-relaxed">No active enrollment found.</p>
@@ -1293,6 +1339,36 @@ const Dashboard = () => {
                   <Sparkles className="w-5 h-5 text-primary" />
                   Explore More Courses
                 </h2>
+                {sortedCourses.length > 1 && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      aria-label="Previous course"
+                      onClick={() => {
+                        const sw = courseSwiperRef.current;
+                        if (!sw) return;
+                        if (sw.isBeginning) sw.slideTo(sw.slides.length - 1);
+                        else sw.slidePrev();
+                      }}
+                      className="w-8 h-8 rounded-full border border-secondary/30 bg-white/60 text-secondary flex items-center justify-center hover:bg-secondary hover:text-white transition-colors"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Next course"
+                      onClick={() => {
+                        const sw = courseSwiperRef.current;
+                        if (!sw) return;
+                        if (sw.isEnd) sw.slideTo(0);
+                        else sw.slideNext();
+                      }}
+                      className="w-8 h-8 rounded-full border border-secondary/30 bg-white/60 text-secondary flex items-center justify-center hover:bg-secondary hover:text-white transition-colors"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
               </div>
               <p className="text-[12px] text-muted-foreground mb-5">
                 Level up your skills with our other training programs
@@ -1300,9 +1376,11 @@ const Dashboard = () => {
 
               <Swiper
                 modules={[Autoplay]}
+                onSwiper={(swiper) => { courseSwiperRef.current = swiper; }}
                 spaceBetween={16}
                 slidesPerView={1}
                 loop={sortedCourses.length > 1}
+                loopAdditionalSlides={2}
                 autoplay={{
                   delay: 2500,
                   disableOnInteraction: false,
@@ -1314,7 +1392,7 @@ const Dashboard = () => {
                 }}
                 className="!py-3 !px-1 !-mx-1"
               >
-                {sortedCourses.map((c, i) => (
+                {loopCourses.map((c, i) => (
                   <SwiperSlide key={`${c.coursedurationId}-${i}`} className="h-auto">
                     <div
                       className={`relative overflow-hidden flex flex-col h-full rounded-2xl p-5 border hover:shadow-[var(--shadow-sm)] hover:-translate-y-1 transition-all duration-200 ${
@@ -1378,13 +1456,23 @@ const Dashboard = () => {
                         </div>
                       )}
 
-                      {/* Footer: laptop note */}
+                      {/* Footer: laptop note + more info */}
                       <div className="flex items-center justify-between gap-2 mt-auto">
-                        {c.laptopRequired === 1 && (
+                        {c.laptopRequired === 1 ? (
                           <span className="inline-flex items-center gap-1 text-[10.5px] text-muted-foreground">
                             <Laptop className="w-3.5 h-3.5" /> Laptop required
                           </span>
+                        ) : (
+                          <span />
                         )}
+                        <button
+                          type="button"
+                          onClick={() => setSelectedCourse(c)}
+                          className="inline-flex items-center gap-1 text-[11px] font-semibold px-3 py-1.5 rounded-full bg-info/10 text-info hover:bg-info/20 transition-colors shrink-0"
+                        >
+                          <Info className="w-3.5 h-3.5" />
+                          More Info
+                        </button>
                       </div>
                     </div>
                   </SwiperSlide>
@@ -1393,6 +1481,63 @@ const Dashboard = () => {
             </motion.div>
           )}
         </div>
+
+        {/* Course details modal */}
+        <Dialog open={!!selectedCourse} onOpenChange={(o) => !o && setSelectedCourse(null)}>
+          <DialogContent className="sm:max-w-lg bg-background/95 backdrop-blur-xl max-h-[85vh] overflow-hidden flex flex-col">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-lg pr-6">
+                <GraduationCap className="w-5 h-5 text-primary shrink-0" />
+                <span>{selectedCourse?.courseName}</span>
+              </DialogTitle>
+              <DialogDescription className="flex flex-wrap items-center gap-2 pt-1">
+                <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-secondary/10 text-secondary">
+                  <Clock className="w-3 h-3" />
+                  {selectedCourse ? formatDuration(selectedCourse.duration) : ""}
+                </span>
+                {selectedCourse && (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-primary/10 text-primary">
+                    <IndianRupee className="w-3 h-3" />
+                    {formatFeeCompact(selectedCourse.courseFees)}
+                  </span>
+                )}
+                {selectedCourse?.laptopRequired === 1 && (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-600">
+                    <Laptop className="w-3 h-3" /> Laptop required
+                  </span>
+                )}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="flex-1 min-h-0 overflow-y-auto pr-1 -mr-1">
+              {/* Technologies */}
+              {selectedCourse?.technologies && selectedCourse.technologies.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-4">
+                  {[...selectedCourse.technologies]
+                    .sort((a, b) => a.learningOrder - b.learningOrder)
+                    .map((t) => (
+                      <span
+                        key={t.technologyId}
+                        className="inline-flex items-center text-[11px] font-medium px-2 py-0.5 rounded-md border bg-blue-500/10 text-blue-600 border-blue-500/20"
+                      >
+                        {t.name}
+                      </span>
+                    ))}
+                </div>
+              )}
+
+              {/* Description */}
+              {selectedCourse?.description ? (
+                <div
+                  className="text-sm text-muted-foreground leading-relaxed prose prose-sm max-w-none"
+                  dangerouslySetInnerHTML={{ __html: selectedCourse.description }}
+                />
+              ) : (
+                <p className="text-sm text-muted-foreground">No description available.</p>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
     </>
   );
 };

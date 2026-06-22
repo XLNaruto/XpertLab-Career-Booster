@@ -111,7 +111,7 @@ const MainLayout = () => {
 
   const visibleNavItems = navItems.filter((item) => {
     if (item.path === "/feedback") return !feedbackSubmitted;
-    if (item.path === "/exam") return hasExams;
+    if (item.path === "/exam") return hasExams && feedbackSubmitted;
     return true;
   });
 
