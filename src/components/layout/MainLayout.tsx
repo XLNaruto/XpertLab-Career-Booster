@@ -51,7 +51,7 @@ const MainLayout = () => {
     const response: any = await postData(
       "private/trainee/personaldetail/get",
       { traineeId },
-      apiHeader(false, 0),
+      apiHeader(false, 2),
     );
     if (
       String(response?.status) === "200" &&
@@ -72,7 +72,7 @@ const MainLayout = () => {
     const response: any = await postData(
       "private/trainee/feedback/questions",
       {},
-      apiHeader(false, 0),
+      apiHeader(false, 2),
     );
     if (
       String(response?.status) === "200" &&
@@ -88,7 +88,7 @@ const MainLayout = () => {
     const response: any = await postData(
       "private/trainee/exam/list",
       {},
-      apiHeader(false, 0),
+      apiHeader(false, 2),
     );
     if (
       String(response?.status) === "200" &&

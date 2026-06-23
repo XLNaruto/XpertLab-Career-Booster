@@ -233,7 +233,7 @@ body::before {
 }
 
 .react-date-picker--custom .react-date-picker__inputGroup__input::placeholder {
-  color: hsl(var(--foreground) / 0.2);
+  color: hsl(var(--foreground) / 0.55);
 }
 
 .react-date-picker--custom .react-date-picker__inputGroup__leadingZero {
@@ -367,7 +367,7 @@ body::before {
 }
 
 .phone-input--custom .form-control::placeholder {
-  color: hsl(var(--foreground) / 0.2);
+  color: hsl(var(--foreground) / 0.55);
 }
 
 .phone-input--custom .form-control:hover {

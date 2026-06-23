@@ -355,7 +355,7 @@ const LocationDetails = forwardRef<StepHandle, LocationDetailsProps>(
               {...register("address")}
               placeholder="Enter your full address"
               rows={4}
-              className="w-full py-3 px-4 bg-white/[0.45] border border-foreground/[0.09] rounded-[11px] text-sm text-foreground placeholder:text-foreground/20 outline-none focus:border-primary/45 focus:bg-white/[0.65] focus:shadow-[0_0_0_3px_hsl(342_80%_53%/0.1)] transition-all duration-200 resize-none"
+              className="w-full py-3 px-4 bg-white/[0.45] border border-foreground/[0.09] rounded-[11px] text-sm text-foreground placeholder:text-foreground/55 outline-none focus:border-primary/45 focus:bg-white/[0.65] focus:shadow-[0_0_0_3px_hsl(342_80%_53%/0.1)] transition-all duration-200 resize-none"
             />
             {errors.address && (
               <p className={errorClass}>{errors.address.message as string}</p>
@@ -448,7 +448,7 @@ const LocationDetails = forwardRef<StepHandle, LocationDetailsProps>(
               disabled={sameAsCurrent}
               placeholder="Enter your full address"
               rows={4}
-              className="w-full py-3 px-4 bg-white/[0.45] border border-foreground/[0.09] rounded-[11px] text-sm text-foreground placeholder:text-foreground/20 outline-none focus:border-primary/45 focus:bg-white/[0.65] focus:shadow-[0_0_0_3px_hsl(342_80%_53%/0.1)] transition-all duration-200 resize-none disabled:opacity-60 disabled:cursor-not-allowed"
+              className="w-full py-3 px-4 bg-white/[0.45] border border-foreground/[0.09] rounded-[11px] text-sm text-foreground placeholder:text-foreground/55 outline-none focus:border-primary/45 focus:bg-white/[0.65] focus:shadow-[0_0_0_3px_hsl(342_80%_53%/0.1)] transition-all duration-200 resize-none disabled:opacity-60 disabled:cursor-not-allowed"
             />
             {errors.permanentAddress && (
               <p className={errorClass}>

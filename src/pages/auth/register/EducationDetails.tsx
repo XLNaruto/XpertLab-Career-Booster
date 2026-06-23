@@ -5,13 +5,14 @@ import DatePicker from "react-date-picker";
 import "react-date-picker/dist/DatePicker.css";
 import "react-calendar/dist/Calendar.css";
 import { FileUploader } from "react-drag-drop-files";
-import { BookOpen, CheckCircle, Download, Trash2, Upload, X } from "lucide-react";
+import { BookOpen, CheckCircle, Eye, Trash2, Upload, X } from "lucide-react";
 import { selectStyles, inputClass, labelClass, errorClass, iconClass } from "./styles";
 import { educationDetailsSchema } from "./schemas";
 import type { RegisterFormData } from "./types";
 import type { StepHandle } from "./PersonalDetails";
 import { apiHeader, postData } from "@/utils/ApiHelper";
 import { toasterrormsg, toastsuccessmsg } from "@/utils/reusable";
+import DocumentLightbox from "@/components/DocumentLightbox";
 
 type Option = { value: string; label: string };
 
@@ -28,7 +29,7 @@ const educationTypeList: Option[] = [
   { value: "PHD", label: "PhD" },
 ];
 
-const FILE_TYPES = ["JPG", "JPEG", "PNG", "GIF", "PDF"];
+const FILE_TYPES = ["JPG", "JPEG", "PNG", "PDF"];
 
 // Year-month is stored and sent as "YYYY-MM". fromApiYearMonth also accepts legacy "M-YYYY".
 const fromApiYearMonth = (v: string) => {
@@ -60,6 +61,7 @@ const EducationDetails = forwardRef<StepHandle, EducationDetailsProps>(({ onSave
 
   const [boardList, setBoardList] = useState<Option[]>([]);
   const [instituteList, setInstituteList] = useState<Option[]>([]);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   const traineeId = methods.watch("traineeId");
   const educationsWatch = watch("educations");
@@ -144,13 +146,13 @@ const EducationDetails = forwardRef<StepHandle, EducationDetailsProps>(({ onSave
 
   const handleDocumentChange = async (file: File, index: number) => {
     if (!file) return;
-    const validTypes = ["image/jpeg", "image/png", "image/gif", "application/pdf"];
+    const validTypes = ["image/jpeg", "image/png", "application/pdf"];
     if (!validTypes.includes(file.type)) {
       toasterrormsg("Invalid file type. Please upload only image or pdf.");
       return;
     }
-    if (file.size > 1 * 1024 * 1024) {
-      toasterrormsg("File size should not exceed 1MB.");
+    if (file.size > 5 * 1024 * 1024) {
+      toasterrormsg("File size should not exceed 5MB.");
       return;
     }
 
@@ -469,62 +471,57 @@ const EducationDetails = forwardRef<StepHandle, EducationDetailsProps>(({ onSave
 
               {isCompleted && (
                 <div>
-                  <label className={labelClass}>Document <span className="text-primary">*</span></label>
-                  <FileUploader
-                    multiple={false}
-                    types={FILE_TYPES}
-                    handleChange={(file: File) => handleDocumentChange(file, idx)}
-                    dropMessageStyle={{ display: "none" }}
-                    hoverTitle=" "
-                    classes="w-full"
-                  >
-                    <div
-                      className={`border-2 border-dashed rounded-xl p-6 flex flex-col items-center gap-2 transition-all cursor-pointer ${
-                        row?.document
-                          ? "border-green-400/40 bg-green-50/30"
-                          : "border-foreground/[0.1] hover:border-primary/30 hover:bg-primary/[0.02]"
-                      }`}
-                    >
-                      {row?.document ? (
-                        <>
-                          <CheckCircle className="w-6 h-6 text-green-500" />
-                          <div className="text-[13px] font-semibold text-foreground/70 text-center truncate max-w-full px-2">
-                            {row.document.split("/").pop() || row.document}
-                          </div>
-                          <div className="flex items-center gap-3">
-                            {row?.url && (
-                              <a
-                                href={row.url}
-                                target="_blank"
-                                rel="noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                className="text-[11px] text-primary font-semibold flex items-center gap-1 hover:opacity-70 transition-opacity"
-                              >
-                                <Download className="w-3 h-3" /> Download
-                              </a>
-                            )}
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                methods.setValue(`educations.${idx}.document`, "");
-                                methods.setValue(`educations.${idx}.url`, "");
-                              }}
-                              className="text-[11px] text-primary font-semibold flex items-center gap-1 hover:opacity-70 transition-opacity"
-                            >
-                              <X className="w-3 h-3" /> Remove
-                            </button>
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <Upload className="w-6 h-6 text-foreground/20" />
-                          <div className="text-[13px] font-semibold text-foreground/50">Upload Document</div>
-                          <div className="text-[11px] text-muted-foreground">Drag &amp; Drop or choose files</div>
-                        </>
-                      )}
+                  <label className={labelClass}>
+                    Document <span className="text-primary">*</span>
+                    <span className="ml-1 font-normal text-muted-foreground">(Allowed: JPG, JPEG, PNG, PDF · max 5MB)</span>
+                  </label>
+                  {row?.document ? (
+                    <div className="border-2 border-dashed border-green-400/40 bg-green-50/30 rounded-xl p-6 flex flex-col items-center gap-2">
+                      <CheckCircle className="w-6 h-6 text-green-500" />
+                      <div className="text-[13px] font-semibold text-foreground/70 text-center truncate max-w-full px-2">
+                        {row.document.split("/").pop() || row.document}
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {row?.url && (
+                          <button
+                            type="button"
+                            onClick={() => setPreviewUrl(row.url)}
+                            className="text-[11px] text-primary font-semibold flex items-center gap-1 hover:opacity-70 transition-opacity"
+                          >
+                            <Eye className="w-3 h-3" /> View
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            methods.setValue(`educations.${idx}.document`, "");
+                            methods.setValue(`educations.${idx}.url`, "");
+                          }}
+                          className="text-[11px] text-primary font-semibold flex items-center gap-1 hover:opacity-70 transition-opacity"
+                        >
+                          <X className="w-3 h-3" /> Remove
+                        </button>
+                      </div>
                     </div>
-                  </FileUploader>
+                  ) : (
+                    <FileUploader
+                      multiple={false}
+                      types={FILE_TYPES}
+                      handleChange={(file: File) => handleDocumentChange(file, idx)}
+                      onTypeError={() =>
+                        toasterrormsg("This file type is not allowed. Allowed: JPG, JPEG, PNG, PDF")
+                      }
+                      dropMessageStyle={{ display: "none" }}
+                      hoverTitle=" "
+                      classes="w-full"
+                    >
+                      <div className="border-2 border-dashed border-foreground/[0.1] hover:border-primary/30 hover:bg-primary/[0.02] rounded-xl p-6 flex flex-col items-center gap-2 transition-all cursor-pointer">
+                        <Upload className="w-6 h-6 text-foreground/20" />
+                        <div className="text-[13px] font-semibold text-foreground/50">Upload Document</div>
+                        <div className="text-[11px] text-muted-foreground">Drag &amp; Drop or choose files</div>
+                      </div>
+                    </FileUploader>
+                  )}
                   {eduErrors?.document && (
                     <p className={errorClass}>{eduErrors.document.message as string}</p>
                   )}
@@ -591,6 +588,8 @@ const EducationDetails = forwardRef<StepHandle, EducationDetailsProps>(({ onSave
       >
         + Add More
       </button>
+
+      <DocumentLightbox url={previewUrl} onClose={() => setPreviewUrl(null)} />
     </div>
   );
 });

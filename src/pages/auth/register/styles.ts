@@ -1,7 +1,7 @@
 import type { StylesConfig } from "react-select";
 
 export const labelClass = "block text-[12.5px] font-semibold text-foreground/65 tracking-[0.5px] uppercase mb-2";
-export const inputClass = "w-full py-2.5 pl-10 pr-3 bg-white/[0.45] border border-foreground/[0.09] rounded-[11px] text-sm text-foreground placeholder:text-foreground/20 outline-none focus:border-primary/45 focus:bg-white/[0.65] focus:shadow-[0_0_0_3px_hsl(342_80%_53%/0.1)] transition-all duration-200";
+export const inputClass = "w-full py-2.5 pl-10 pr-3 bg-white/[0.45] border border-foreground/[0.09] rounded-[11px] text-sm text-foreground placeholder:text-foreground/55 outline-none focus:border-primary/45 focus:bg-white/[0.65] focus:shadow-[0_0_0_3px_hsl(342_80%_53%/0.1)] transition-all duration-200";
 export const errorClass = "text-xs text-primary mt-1.5";
 export const iconClass = "absolute left-3.5 top-1/2 -translate-y-1/2 text-foreground/20 pointer-events-none";
 
@@ -20,7 +20,7 @@ export const selectStyles: StylesConfig = {
   }),
   placeholder: (base) => ({
     ...base,
-    color: "hsl(var(--foreground) / 0.2)",
+    color: "hsl(var(--foreground) / 0.55)",
     fontSize: "14px",
   }),
   singleValue: (base) => ({

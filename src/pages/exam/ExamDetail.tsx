@@ -20,7 +20,7 @@ import "intro.js/introjs.css";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Progress } from "@/components/ui/progress";
 import { apiHeader, postData } from "@/utils/ApiHelper";
-import { decryptUrlData, getEncodedCookie, toasterrormsg, toastsuccessmsg } from "@/utils/reusable";
+import { decryptUrlData, encryptUrlData, getEncodedCookie, toasterrormsg, toastsuccessmsg } from "@/utils/reusable";
 
 // Format a millisecond duration as M:SS (or H:MM:SS for long exams).
 const formatTime = (ms: number): string => {
@@ -128,7 +128,7 @@ const ExamDetail = () => {
     const response: any = await postData(
       "private/trainee/exam/detail",
       { examallocationId },
-      apiHeader(false, 0),
+      apiHeader(false, 2),
     );
     if (
       String(response?.status) === "200" &&
@@ -296,7 +296,7 @@ const ExamDetail = () => {
     postData(
       "private/trainee/exam/updateStatus",
       { examallocationId, status: "TIMEOUT" },
-      apiHeader(false, 0),
+      apiHeader(false, 2),
     );
     setTimedOut(true);
   };
@@ -319,7 +319,7 @@ const ExamDetail = () => {
       postData(
         "private/trainee/exam/updateStatus",
         { examallocationId, status: "STARTED" },
-        apiHeader(false, 0),
+        apiHeader(false, 2),
       );
     } else if (deadlineRef.current != null) {
       // Resume → deadline is already the server's; refresh the displayed value.
@@ -485,7 +485,7 @@ const ExamDetail = () => {
         trainingexamquestionId: q.id,
         answer: q.selected,
       },
-      apiHeader(false, 0),
+      apiHeader(false, 2),
     );
     setSaving(false);
     const ok =
@@ -506,7 +506,8 @@ const ExamDetail = () => {
     if (current < questions.length - 1) {
       setCurrent((c) => c + 1);
     } else {
-      // Last question saved — exam complete.
+      // Last question saved — exam complete. Show the finished card; the
+      // trainee taps "See Result" to go to the dedicated result page.
       activeRef.current = false;
       setFinished(true);
     }
@@ -607,14 +608,27 @@ const ExamDetail = () => {
             </div>
             <h2 className="text-2xl font-bold text-foreground mb-2">Exam Submitted!</h2>
             <p className="text-muted-foreground text-sm mb-8">
-              You answered {answeredCount} of {total} questions.
+              You answered {answeredCount} of {total} questions. Your result is ready.
             </p>
-            <Link
-              to="/exam"
-              className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl text-sm font-semibold bg-gradient-to-br from-primary to-primary-light text-primary-foreground shadow-[var(--shadow-primary)] hover:-translate-y-1 transition-all duration-300"
-            >
-              Back to Exams
-            </Link>
+            <div className="flex items-center justify-center gap-3">
+              <Link
+                to="/dashboard"
+                className="inline-flex items-center gap-2 px-7 py-3.5 rounded-xl text-sm font-semibold text-muted-foreground border border-foreground/[0.15] hover:border-foreground/[0.3] hover:text-foreground hover:bg-white/[0.5] transition-all duration-200"
+              >
+                Back
+              </Link>
+              <button
+                onClick={() =>
+                  navigate(
+                    `/exam/result?data=${encryptUrlData({ examallocationId, name: examName })}`,
+                    { replace: true },
+                  )
+                }
+                className="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl text-sm font-semibold bg-gradient-to-br from-primary to-primary-light text-primary-foreground shadow-[var(--shadow-primary)] hover:-translate-y-1 transition-all duration-300"
+              >
+                See Result <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </motion.div>
       </div>

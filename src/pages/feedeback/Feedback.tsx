@@ -95,7 +95,7 @@ const Feedback = () => {
     const response: any = await postData(
       "private/trainee/feedback/questions",
       {},
-      apiHeader(false, 0),
+      apiHeader(false, 2),
     );
     if (
       String(response?.status) === "200" &&
@@ -182,7 +182,7 @@ const Feedback = () => {
     const response: any = await postData(
       "private/trainee/feedback/submit",
       payload,
-      apiHeader(false, 0),
+      apiHeader(false, 2),
     );
     if (
       String(response?.status) === "200" &&
@@ -440,7 +440,7 @@ const Feedback = () => {
 
                   {q.type === "descriptive" &&
                     (locked ? (
-                      <div className="w-full rounded-xl border border-foreground/[0.08] bg-white/[0.35] px-4 py-3 text-sm text-foreground whitespace-pre-wrap">
+                      <div className="w-full rounded-xl border border-foreground/[0.08] bg-white/[0.35] px-4 py-3 text-sm text-foreground whitespace-pre-wrap [overflow-wrap:anywhere]">
                         {answers[q.id]}
                       </div>
                     ) : (

@@ -360,7 +360,7 @@ const PersonalDetails = forwardRef<StepHandle, PersonalDetailsProps>(
               <input
                 {...register("firstName")}
                 placeholder="Ex. Mahendrasingh"
-                className="flex-1 min-w-0 bg-transparent px-3 py-2.5 text-sm text-foreground placeholder:text-foreground/20 outline-none rounded-r-[11px]"
+                className="flex-1 min-w-0 bg-transparent px-3 py-2.5 text-sm text-foreground placeholder:text-foreground/55 outline-none rounded-r-[11px]"
               />
             </div>
             {(errors.prefix || errors.firstName) && (

@@ -14,8 +14,9 @@ import type { RegisterFormData, TraineeDocument } from "./types";
 import type { StepHandle } from "./PersonalDetails";
 import { apiHeader, postData } from "@/utils/ApiHelper";
 import { toasterrormsg, toastsuccessmsg } from "@/utils/reusable";
+import DocumentLightbox from "@/components/DocumentLightbox";
 
-const fileTypes = ["JPG", "JPEG", "PNG", "GIF", "PDF"];
+const fileTypes = ["JPG", "JPEG", "PNG", "PDF"];
 
 const isImage = (path: string) => /\.(jpe?g|png|gif|webp|bmp)$/i.test(path);
 
@@ -40,6 +41,7 @@ const Documents = forwardRef<StepHandle, DocumentsProps>(({ onSaved }, ref) => {
   const fetchedForRef = useRef<string>("");
 
   const [masterList, setMasterList] = useState<MasterDocument[]>([]);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const traineeId = methods.watch("traineeId");
   const documents = methods.watch("documents") || [];
 
@@ -137,18 +139,13 @@ const Documents = forwardRef<StepHandle, DocumentsProps>(({ onSaved }, ref) => {
 
   const handleDocumentChange = async (file: File, index: number) => {
     if (!file) return;
-    const validTypes = [
-      "image/jpeg",
-      "image/png",
-      "image/gif",
-      "application/pdf",
-    ];
+    const validTypes = ["image/jpeg", "image/png", "application/pdf"];
     if (!validTypes.includes(file.type)) {
       toasterrormsg("Invalid file type. Please upload only image or PDF.");
       return;
     }
-    if (file.size > 1 * 1024 * 1024) {
-      toasterrormsg("File size should not exceed 1MB.");
+    if (file.size > 5 * 1024 * 1024) {
+      toasterrormsg("File size should not exceed 5MB.");
       return;
     }
 
@@ -294,7 +291,10 @@ const Documents = forwardRef<StepHandle, DocumentsProps>(({ onSaved }, ref) => {
         )}
       </div>
       <div>
-        <label className={labelClass}>Documents</label>
+        <label className={labelClass}>
+          Documents
+          <span className="ml-1 font-normal normal-case tracking-normal text-muted-foreground">(Allowed: JPG, JPEG, PNG, PDF · max 5MB)</span>
+        </label>
         <div className="grid grid-cols-3 gap-3 items-stretch">
           {documents.map((doc, idx) => {
             const isCompulsory =
@@ -335,7 +335,7 @@ const Documents = forwardRef<StepHandle, DocumentsProps>(({ onSaved }, ref) => {
                     <div className="grid grid-cols-2 gap-2 mt-auto">
                       <button
                         type="button"
-                        onClick={() => window.open(doc.url || doc.document, "_blank")}
+                        onClick={() => setPreviewUrl(doc.url || doc.document)}
                         disabled={!doc.url && !doc.document}
                         className="py-1.5 text-[12px] font-semibold rounded-lg bg-white/70 border border-foreground/[0.1] text-foreground/80 hover:bg-white transition-all flex items-center justify-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed"
                       >
@@ -353,6 +353,9 @@ const Documents = forwardRef<StepHandle, DocumentsProps>(({ onSaved }, ref) => {
                 ) : (
                   <FileUploader
                     handleChange={(file: File) => handleDocumentChange(file, idx)}
+                    onTypeError={() =>
+                      toasterrormsg("This file type is not allowed. Allowed: JPG, JPEG, PNG, PDF")
+                    }
                     name={`document-${idx}`}
                     types={fileTypes}
                     dropMessageStyle={{ display: "none" }}
@@ -376,6 +379,8 @@ const Documents = forwardRef<StepHandle, DocumentsProps>(({ onSaved }, ref) => {
           })}
         </div>
       </div>
+
+      <DocumentLightbox url={previewUrl} onClose={() => setPreviewUrl(null)} />
     </div>
   );
 });

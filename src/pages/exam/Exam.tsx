@@ -49,7 +49,7 @@ const Exam = () => {
     const response: any = await postData(
       "private/trainee/exam/list",
       {},
-      apiHeader(false, 0),
+      apiHeader(false, 2),
     );
     if (
       String(response?.status) === "200" &&
@@ -101,7 +101,7 @@ const Exam = () => {
     const response: any = await postData(
       "private/trainee/exam/updateStatus",
       { examallocationId: exam.examallocationId, status: "STARTED" },
-      apiHeader(false, 0),
+      apiHeader(false, 2),
     );
     setStartingId(null);
     if (

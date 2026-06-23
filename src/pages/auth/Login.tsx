@@ -5,7 +5,7 @@ import { motion, useMotionValue, useSpring, useTransform } from "motion/react";
 import AnimatedBackground from "@/components/AnimatedBackground";
 import InteractiveBackground from "@/components/InteractiveBackground";
 import { Eye, EyeOff, User, Lock } from "lucide-react";
-import { setEncodedCookie, toasterrormsg, toastsuccessmsg, toAbsoluteUrl } from "@/utils/reusable";
+import { encryptUrlData, setEncodedCookie, toasterrormsg, toastsuccessmsg, toAbsoluteUrl } from "@/utils/reusable";
 import { apiHeader, postData } from "@/utils/ApiHelper";
 
 interface LoginFormData {
@@ -39,20 +39,63 @@ const Login = () => {
         username: data.username,
         password: data.password,
       };
-      const response: any = await postData("trainee/auth/login", param, apiHeader(false,2));
+      const response: any = await postData("trainee/auth/login", param, apiHeader(false,0));
 
-      if (String(response?.status) === "200" && String(response.data?.status) === "200") {
-        const resData = response.data.data || {};
-        if (resData.traineeId) {
+      const body = response?.data || {};
+      const resData = body.data || {};
+      const isOk =
+        String(response?.status) === "200" && String(body.status) === "200";
+
+      // The backend returns the trainee's completedStep both on a successful
+      // login (status 200, fully registered) and on an "incomplete
+      // registration" rejection (e.g. status 400, no token). Either way, if we
+      // have a traineeId + completedStep we can decide where to send them.
+      if (resData.traineeId && resData.completedStep) {
+        // Registration steps, in the same order the Register flow expects.
+        const cs = resData.completedStep;
+        const order = [
+          cs.basicDetail,
+          cs.location,
+          cs.guardianDetail,
+          cs.educationDetail,
+          cs.courseDetail,
+          cs.documents,
+        ];
+        const allComplete = order.every(Boolean);
+
+        if (allComplete && isOk) {
+          // Fully registered → log in: store credentials and go to dashboard.
           if (resData.token) setEncodedCookie("token", resData.token);
           setEncodedCookie("traineeId", resData.traineeId);
           navigate("/dashboard");
-          toastsuccessmsg(response.data.message || "Login successful");
+          toastsuccessmsg(body.message || "Login successful");
         } else {
-          toasterrormsg(response?.data?.message || "Trainee ID not found. Unable to login.");
+          // Registration incomplete → do NOT store the id/token. Resume the
+          // register flow at the first incomplete step (traineeId travels in
+          // the encrypted URL payload, exactly like the register flow uses).
+          let completed = 0;
+          for (const v of order) {
+            if (v) completed++;
+            else break;
+          }
+          const nextStep = Math.min(completed + 1, order.length);
+          navigate(
+            `/register?data=${encryptUrlData({
+              traineeId: String(resData.traineeId),
+              completedStep: completed,
+              step: nextStep,
+            })}`,
+          );
+          toastsuccessmsg(body.message || "Please complete your registration");
         }
+      } else if (isOk && resData.traineeId) {
+        // Logged in but no step info → treat as fully registered.
+        if (resData.token) setEncodedCookie("token", resData.token);
+        setEncodedCookie("traineeId", resData.traineeId);
+        navigate("/dashboard");
+        toastsuccessmsg(body.message || "Login successful");
       } else {
-        toasterrormsg(response?.data?.message || "Invalid credentials");
+        toasterrormsg(body.message || "Invalid credentials");
       }
     } catch (error: any) {
       toasterrormsg(error?.message || "Something went wrong");

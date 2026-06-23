@@ -78,7 +78,10 @@ const makeStars = () =>
     delay: (i % 7) * 0.3,
   }));
 
-const DailyGreetingPopup = ({ name }: { name?: string }) => {
+// `active` gates when the popup is allowed to open, so the dashboard can show
+// it only after the welcome popup has been dismissed (defaults to true so the
+// component still works on its own).
+const DailyGreetingPopup = ({ name, active = true }: { name?: string; active?: boolean }) => {
   const [open, setOpen] = useState(false);
   const [phase] = useState<Phase>(getPhase);
   const [quote] = useState(() => QUOTES[Math.floor(Math.random() * QUOTES.length)]);
@@ -95,6 +98,7 @@ const DailyGreetingPopup = ({ name }: { name?: string }) => {
   const storageKey = `daily_greeting_${traineeId || "guest"}_${today}`;
 
   useEffect(() => {
+    if (!active) return;
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout>;
     idbGet<boolean>(storageKey).then((seen) => {
@@ -104,7 +108,7 @@ const DailyGreetingPopup = ({ name }: { name?: string }) => {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [storageKey]);
+  }, [storageKey, active]);
 
   const handleClose = () => {
     idbSet(storageKey, true);

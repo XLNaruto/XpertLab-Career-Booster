@@ -13,6 +13,7 @@ import ExerciseDetail from "./pages/exercise/ExerciseDetail";
 import Feedback from "./pages/feedeback/Feedback";
 import Exam from "./pages/exam/Exam";
 import ExamDetail from "./pages/exam/ExamDetail";
+import ExamResult from "./pages/exam/ExamResult";
 import MyProfile from "./pages/myprofile/MyProfile";
 import NotFound from "./pages/error/NotFound";
 import MainLayout from "./components/layout/MainLayout";
@@ -46,6 +47,7 @@ const App = () => (
               <Route path="/feedback" element={<Feedback />} />
               <Route path="/exam" element={<Exam />} />
               <Route path="/exam/details" element={<ExamDetail />} />
+              <Route path="/exam/result" element={<ExamResult />} />
               <Route path="/profile" element={<MyProfile />} />
             </Route>
           </Route>

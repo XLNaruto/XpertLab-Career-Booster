@@ -3,7 +3,10 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Rocket, Sparkles, Target, Zap, ArrowRight } from "lucide-react";
 import { getEncodedCookie } from "@/utils/reusable";
 
-const WelcomePopup = () => {
+// `onDone` fires once the welcome flow is resolved — either because the user
+// closed it, or because it was already seen and won't show. The dashboard uses
+// this to defer the daily greeting popup until after the welcome is dismissed.
+const WelcomePopup = ({ onDone }: { onDone?: () => void }) => {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(0);
 
@@ -18,11 +21,14 @@ const WelcomePopup = () => {
       const timer = setTimeout(() => setOpen(true), 800);
       return () => clearTimeout(timer);
     }
+    // Already seen — nothing to show, so the next popup can proceed immediately.
+    onDone?.();
   }, [storageKey]);
 
   const handleClose = () => {
     localStorage.setItem(storageKey, "true");
     setOpen(false);
+    onDone?.();
   };
 
   const handleNext = () => {

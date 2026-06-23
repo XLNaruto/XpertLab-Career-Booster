@@ -61,7 +61,7 @@ const ExerciseDetail = () => {
     const response: any = await postData(
       "private/trainee/exercise/detail",
       { trainingexerciseId },
-      apiHeader(false, 0)
+      apiHeader(false, 2)
     );
     if (
       String(response?.status) === "200" &&

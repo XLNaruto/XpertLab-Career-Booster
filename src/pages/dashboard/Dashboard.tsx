@@ -130,21 +130,6 @@ const formatDuration = (totalDays: number): string => {
   return parts.join(" ");
 };
 
-// Compact Indian-rupee formatting so big fees fit the small ribbon.
-// < 1 lakh -> full (₹15,000); >= 1 lakh -> ₹2.5L; >= 1 crore -> ₹1.2Cr.
-const formatFeeCompact = (amount: number): string => {
-  const n = Number(amount || 0);
-  if (n >= 1_00_00_000) {
-    const v = n / 1_00_00_000;
-    return `₹${Number.isInteger(v) ? v : v.toFixed(1)}Cr`;
-  }
-  if (n >= 1_00_000) {
-    const v = n / 1_00_000;
-    return `₹${Number.isInteger(v) ? v : v.toFixed(1)}L`;
-  }
-  return `₹${n.toLocaleString("en-IN")}`;
-};
-
 // Typewriter text reveal hook
 const useTypewriter = (text: string, speed = 60, delay = 300) => {
   const [displayed, setDisplayed] = useState("");
@@ -501,6 +486,8 @@ const AttendanceCalendar = ({
 // Main dashboard page component
 const Dashboard = () => {
   const [firstName, setFirstName] = useState("");
+  // Show the daily greeting only after the welcome popup is dismissed/resolved
+  const [welcomeDone, setWelcomeDone] = useState(false);
   const hour = new Date().getHours();
   const timeGreeting =
     hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
@@ -513,6 +500,7 @@ const Dashboard = () => {
   const [calendar, setCalendar] = useState<DashboardCalendar | null>(null);
   const [advertiseCourses, setAdvertiseCourses] = useState<AdvertiseCourse[]>([]);
   const [selectedCourse, setSelectedCourse] = useState<AdvertiseCourse | null>(null);
+  const [feeDialogOpen, setFeeDialogOpen] = useState(false);
 
   // Raw data used to compute the profile-completion checklist
   const [personalData, setPersonalData] = useState<any>(null);
@@ -596,7 +584,7 @@ const Dashboard = () => {
     const response: any = await postData(
       "private/trainee/dashboard/analysis",
       {},
-      apiHeader(false, 0)
+      apiHeader(false, 2)
     );
     if (
       String(response?.status) === "200" &&
@@ -623,7 +611,7 @@ const Dashboard = () => {
     const response: any = await postData(
       "private/trainee/coursedetail/advertise",
       {},
-      apiHeader(false, 0)
+      apiHeader(false, 2)
     );
     const payload = response?.data;
     const list: AdvertiseCourse[] = Array.isArray(payload)
@@ -785,8 +773,8 @@ const Dashboard = () => {
 
   return (
     <>
-      <WelcomePopup />
-      <DailyGreetingPopup name={firstName} />
+      <WelcomePopup onDone={() => setWelcomeDone(true)} />
+      <DailyGreetingPopup name={firstName} active={welcomeDone} />
       <div className="flex-1 px-10 pb-10">
           {/* Greeting */}
           <div className="mb-8">
@@ -874,7 +862,7 @@ const Dashboard = () => {
                       </span>
                     </div>
                     <p className="text-[11px] text-muted-foreground mt-1.5">
-                      Duration: <span className="font-semibold text-foreground">{Math.max(0, moment(course.endDate).diff(moment(course.startDate), "weeks"))} weeks</span>
+                      Duration: <span className="font-semibold text-foreground">{Math.max(0, moment(course.endDate).diff(moment(course.startDate), "weeks"))} week</span>
                     </p>
                     <motion.div
                       initial={{ opacity: 0, y: 6 }}
@@ -1401,12 +1389,20 @@ const Dashboard = () => {
                           : "bg-secondary/[0.06] border-secondary/25"
                       }`}
                     >
-                      {/* Corner price ribbon */}
-                      <div className="absolute top-0 right-0 w-28 h-28 overflow-hidden pointer-events-none z-10">
-                        <div className="absolute top-[20px] right-[-40px] w-[150px] rotate-45 bg-gradient-to-r from-secondary to-secondary/80 text-white text-center text-[12px] font-bold py-1 shadow-[0_2px_8px_rgba(0,0,0,0.18)] whitespace-nowrap">
-                          {formatFeeCompact(c.courseFees)}
-                        </div>
-                      </div>
+                      {/* Fee info button (hidden once purchased) */}
+                      {!c.isCoursePurchased && (
+                        <button
+                          type="button"
+                          onClick={() => setFeeDialogOpen(true)}
+                          aria-label="View fee information"
+                          title="View fee information"
+                          className="absolute top-3 right-3 z-10 inline-flex items-center gap-1.5 text-[11px] font-semibold pl-2.5 pr-3 py-1.5 rounded-full bg-secondary text-white shadow-sm hover:bg-secondary/90 hover:shadow-md active:scale-95 transition-all"
+                        >
+                          <IndianRupee className="w-3.5 h-3.5" />
+                          Fee Info
+                          <Info className="w-3.5 h-3.5 opacity-80" />
+                        </button>
+                      )}
 
                       {/* Header: icon + duration + status */}
                       <div className="flex items-center gap-2 mb-3 pr-8 flex-wrap">
@@ -1468,9 +1464,9 @@ const Dashboard = () => {
                         <button
                           type="button"
                           onClick={() => setSelectedCourse(c)}
-                          className="inline-flex items-center gap-1 text-[11px] font-semibold px-3 py-1.5 rounded-full bg-info/10 text-info hover:bg-info/20 transition-colors shrink-0"
+                          className="inline-flex items-center gap-1.5 text-[13px] font-semibold px-4 py-2 rounded-full bg-info/10 text-info hover:bg-info/20 transition-colors shrink-0"
                         >
-                          <Info className="w-3.5 h-3.5" />
+                          <Info className="w-4 h-4" />
                           More Info
                         </button>
                       </div>
@@ -1495,11 +1491,20 @@ const Dashboard = () => {
                   <Clock className="w-3 h-3" />
                   {selectedCourse ? formatDuration(selectedCourse.duration) : ""}
                 </span>
-                {selectedCourse && (
-                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-primary/10 text-primary">
-                    <IndianRupee className="w-3 h-3" />
-                    {formatFeeCompact(selectedCourse.courseFees)}
-                  </span>
+                {selectedCourse && !selectedCourse.isCoursePurchased && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedCourse(null);
+                      setFeeDialogOpen(true);
+                    }}
+                    title="View fee information"
+                    className="inline-flex items-center gap-1.5 text-[11px] font-semibold pl-2.5 pr-3 py-1.5 rounded-full bg-secondary text-white shadow-sm hover:bg-secondary/90 hover:shadow-md active:scale-95 transition-all"
+                  >
+                    <IndianRupee className="w-3.5 h-3.5" />
+                    Fee Info
+                    <Info className="w-3.5 h-3.5 opacity-80" />
+                  </button>
                 )}
                 {selectedCourse?.laptopRequired === 1 && (
                   <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-600">
@@ -1536,6 +1541,23 @@ const Dashboard = () => {
                 <p className="text-sm text-muted-foreground">No description available.</p>
               )}
             </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Fee information modal */}
+        <Dialog open={feeDialogOpen} onOpenChange={setFeeDialogOpen}>
+          <DialogContent className="sm:max-w-sm bg-background/95 backdrop-blur-xl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-base">
+                <span className="w-9 h-9 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                  <IndianRupee className="w-5 h-5" />
+                </span>
+                Fee Information
+              </DialogTitle>
+              <DialogDescription className="pt-2 text-sm">
+                For further details regarding this course, please contact the Trainee Head.
+              </DialogDescription>
+            </DialogHeader>
           </DialogContent>
         </Dialog>
     </>

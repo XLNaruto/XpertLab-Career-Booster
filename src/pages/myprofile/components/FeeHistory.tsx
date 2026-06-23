@@ -93,7 +93,7 @@ const FeeHistory = () => {
     const response: any = await postData(
       "private/trainee/paymenthistory/list",
       payload,
-      apiHeader(false, 0),
+      apiHeader(false, 2),
     );
     if (
       String(response?.status) === "200" &&

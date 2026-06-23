@@ -131,7 +131,7 @@ const MyProfile = () => {
     const response: any = await postData(
       "private/trainee/personaldetail/get",
       { traineeId },
-      apiHeader(false, 0),
+      apiHeader(false, 2),
     );
 
     if (
