@@ -224,31 +224,37 @@ export const courseDetailsSchema = z
   .object({
     enrollmentType: z.string().trim().min(1, "Please Select Enrollment Type"),
     course: z.string().trim().min(1, "Please Select Course"),
-    traineeArea: z.string().trim().min(1, "Please Select Trainee Area"),
-    batchDay: z.string().trim().min(1, "Please Select Batch Day"),
-    batchTime: z.string().trim().min(1, "Please Select Batch Time"),
+    traineeArea: z.string().trim().optional().default(""),
+    batchDay: z.string().trim().optional().default(""),
+    batchTime: z.string().trim().optional().default(""),
     joiningDate: z.date({
       required_error: "Joining Date Is Required",
       invalid_type_error: "Joining Date Is Required",
     }),
-    hasLaptop: z
-      .number({
-        required_error: "Please Select Device Availability",
-        invalid_type_error: "Please Select Device Availability",
-      })
-      .refine((v) => v === 0 || v === 1, "Please Select Device Availability"),
+    hasLaptop: z.number().nullable().optional(),
     computerId: z.string().optional().default(""),
   })
   .superRefine((d, ctx) => {
-    if (d.hasLaptop === 0 && !d.computerId) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["computerId"],
-        message: "Please Select Computer",
-      });
+    const isTraining = d.enrollmentType === "TRAINING";
+
+    if (isTraining) {
+      if (!d.traineeArea) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["traineeArea"], message: "Please Select Trainee Area" });
+      }
+      if (!d.batchDay) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["batchDay"], message: "Please Select Batch Day" });
+      }
+      if (!d.batchTime) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["batchTime"], message: "Please Select Batch Time" });
+      }
+      if (d.hasLaptop === null || d.hasLaptop === undefined) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["hasLaptop"], message: "Please Select Device Availability" });
+      }
+      if (d.hasLaptop === 0 && !d.computerId) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["computerId"], message: "Please Select Computer" });
+      }
     }
   });
-
 export type CourseDetailsValues = z.infer<typeof courseDetailsSchema>;
 
 export const documentsSchema = z

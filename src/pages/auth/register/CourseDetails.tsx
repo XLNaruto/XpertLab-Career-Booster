@@ -52,6 +52,10 @@ const CourseDetails = forwardRef<StepHandle, CourseDetailsProps>(
 
     const traineeId = methods.watch("traineeId");
     const hasLaptop = methods.watch("hasLaptop");
+    const enrollmentType = methods.watch("enrollmentType");
+
+    // true when Certificate is selected — hides the 4 fields
+    const isCertificateOnly = enrollmentType === "CERTIFICATE_ONLY";
 
     const courseListApiCall = async () => {
       const response: any = await postData(
@@ -176,6 +180,18 @@ const CourseDetails = forwardRef<StepHandle, CourseDetailsProps>(
       computerListApiCall();
     }, []);
 
+    // When enrollment type switches to Certificate, clear the hidden fields
+    useEffect(() => {
+      if (isCertificateOnly) {
+        methods.setValue("traineeArea", "");
+        methods.setValue("batchDay", "");
+        methods.setValue("batchTime", "");
+        methods.setValue("hasLaptop", null as any);
+        methods.setValue("computerId", "");
+        methods.clearErrors(["traineeArea", "batchDay", "batchTime", "hasLaptop", "computerId"]);
+      }
+    }, [isCertificateOnly]);
+
     const traineeCourseDetailApiCall = async (id: string) => {
       const param = { traineeId: id };
       const response: any = await postData(
@@ -273,12 +289,13 @@ const CourseDetails = forwardRef<StepHandle, CourseDetailsProps>(
             traineecourseId: values.traineecourseId || 0,
             coursedurationId: v.course,
             enrollmentType: v.enrollmentType,
-            traineeareaId: v.traineeArea,
-            batchId: v.batchDay,
-            timingId: v.batchTime,
+            // Send empty/null for hidden fields when Certificate
+            traineeareaId: isCertificateOnly ? "" : v.traineeArea,
+            batchId: isCertificateOnly ? "" : v.batchDay,
+            timingId: isCertificateOnly ? "" : v.batchTime,
             startDate: v.joiningDate ? moment(v.joiningDate).format("YYYY-MM-DD") : "",
-            hasLaptop: v.hasLaptop,
-            computerId: v.hasLaptop === 0 ? v.computerId : "",
+            hasLaptop: isCertificateOnly ? null : v.hasLaptop,
+            computerId: isCertificateOnly ? "" : (v.hasLaptop === 0 ? v.computerId : ""),
           };
 
           const response: any = await postData(
@@ -301,7 +318,7 @@ const CourseDetails = forwardRef<StepHandle, CourseDetailsProps>(
           return false;
         },
       }),
-      [methods, onSaved],
+      [methods, onSaved, isCertificateOnly],
     );
 
     return (
@@ -329,6 +346,7 @@ const CourseDetails = forwardRef<StepHandle, CourseDetailsProps>(
               <p className={errorClass}>{errors.course.message as string}</p>
             )}
           </div>
+
           <div>
             <label className={labelClass}>
               Enrollment Type <span className="text-primary">*</span>
@@ -356,81 +374,92 @@ const CourseDetails = forwardRef<StepHandle, CourseDetailsProps>(
               </p>
             )}
           </div>
-          <div>
-            <label className={labelClass}>
-              Trainee Area <span className="text-primary">*</span>
-            </label>
-            <Controller
-              name="traineeArea"
-              control={control}
-              render={({ field }) => (
-                <Select
-                  {...field}
-                  options={traineeAreaList}
-                  placeholder="Trainee Area"
-                  styles={selectStyles}
-                  value={
-                    traineeAreaList.find((o) => o.value === field.value) ||
-                    null
-                  }
-                  onChange={(opt: any) => field.onChange(opt?.value || "")}
-                />
+
+          {/* ── Hidden when Certificate Only ── */}
+          {!isCertificateOnly && (
+            <div>
+              <label className={labelClass}>
+                Trainee Area <span className="text-primary">*</span>
+              </label>
+              <Controller
+                name="traineeArea"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    {...field}
+                    options={traineeAreaList}
+                    placeholder="Trainee Area"
+                    styles={selectStyles}
+                    value={
+                      traineeAreaList.find((o) => o.value === field.value) ||
+                      null
+                    }
+                    onChange={(opt: any) => field.onChange(opt?.value || "")}
+                  />
+                )}
+              />
+              {errors.traineeArea && (
+                <p className={errorClass}>
+                  {errors.traineeArea.message as string}
+                </p>
               )}
-            />
-            {errors.traineeArea && (
-              <p className={errorClass}>
-                {errors.traineeArea.message as string}
-              </p>
-            )}
-          </div>
-          <div>
-            <label className={labelClass}>
-              Batch Day <span className="text-primary">*</span>
-            </label>
-            <Controller
-              name="batchDay"
-              control={control}
-              render={({ field }) => (
-                <Select
-                  {...field}
-                  options={batchDayList}
-                  placeholder="Select Batch Day"
-                  styles={selectStyles}
-                  value={
-                    batchDayList.find((o) => o.value === field.value) || null
-                  }
-                  onChange={(opt: any) => field.onChange(opt?.value || "")}
-                />
+            </div>
+          )}
+
+          {!isCertificateOnly && (
+            <div>
+              <label className={labelClass}>
+                Batch Day <span className="text-primary">*</span>
+              </label>
+              <Controller
+                name="batchDay"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    {...field}
+                    options={batchDayList}
+                    placeholder="Select Batch Day"
+                    styles={selectStyles}
+                    value={
+                      batchDayList.find((o) => o.value === field.value) || null
+                    }
+                    onChange={(opt: any) => field.onChange(opt?.value || "")}
+                  />
+                )}
+              />
+              {errors.batchDay && (
+                <p className={errorClass}>{errors.batchDay.message as string}</p>
               )}
-            />
-            {errors.batchDay && (
-              <p className={errorClass}>{errors.batchDay.message as string}</p>
-            )}
-          </div>
-          <div>
-            <label className={labelClass}>
-              Batch Time <span className="text-primary">*</span>
-            </label>
-            <Controller
-              name="batchTime"
-              control={control}
-              render={({ field }) => (
-                <Select
-                  {...field}
-                  options={batchTimeList}
-                  placeholder="Select Batch Time"
-                  styles={selectStyles}
-                  value={
-                    batchTimeList.find((o) => o.value === field.value) || null
-                  }
-                  onChange={(opt: any) => field.onChange(opt?.value || "")}
-                />
+            </div>
+          )}
+
+          {!isCertificateOnly && (
+            <div>
+              <label className={labelClass}>
+                Batch Time <span className="text-primary">*</span>
+              </label>
+              <Controller
+                name="batchTime"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    {...field}
+                    options={batchTimeList}
+                    placeholder="Select Batch Time"
+                    styles={selectStyles}
+                    value={
+                      batchTimeList.find((o) => o.value === field.value) || null
+                    }
+                    onChange={(opt: any) => field.onChange(opt?.value || "")}
+                  />
+                )}
+              />
+              {errors.batchTime && (
+                <p className={errorClass}>{errors.batchTime.message as string}</p>
               )}
-            />
-            {errors.batchTime && (
-              <p className={errorClass}>{errors.batchTime.message as string}</p>
-            )}
-          </div>
+            </div>
+          )}
+
           <div>
             <label className={labelClass}>
               Joining Date <span className="text-primary">*</span>
@@ -457,39 +486,43 @@ const CourseDetails = forwardRef<StepHandle, CourseDetailsProps>(
               </p>
             )}
           </div>
-          <div>
-            <label className={labelClass}>
-              Device Availability <span className="text-primary">*</span>
-            </label>
-            <Controller
-              name="hasLaptop"
-              control={control}
-              render={({ field }) => (
-                <Select
-                  {...field}
-                  options={deviceAvailabilityOptions}
-                  placeholder="Select Device"
-                  styles={selectStyles}
-                  value={
-                    deviceAvailabilityOptions.find(
-                      (o) => o.value === field.value,
-                    ) || null
-                  }
-                  onChange={(opt: any) => {
-                    const v = opt ? opt.value : null;
-                    field.onChange(v);
-                    if (v !== 0) methods.setValue("computerId", "");
-                  }}
-                />
+
+          {!isCertificateOnly && (
+            <div>
+              <label className={labelClass}>
+                Device Availability <span className="text-primary">*</span>
+              </label>
+              <Controller
+                name="hasLaptop"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    {...field}
+                    options={deviceAvailabilityOptions}
+                    placeholder="Select Device"
+                    styles={selectStyles}
+                    value={
+                      deviceAvailabilityOptions.find(
+                        (o) => o.value === field.value,
+                      ) || null
+                    }
+                    onChange={(opt: any) => {
+                      const v = opt ? opt.value : null;
+                      field.onChange(v);
+                      if (v !== 0) methods.setValue("computerId", "");
+                    }}
+                  />
+                )}
+              />
+              {errors.hasLaptop && (
+                <p className={errorClass}>
+                  {errors.hasLaptop.message as string}
+                </p>
               )}
-            />
-            {errors.hasLaptop && (
-              <p className={errorClass}>
-                {errors.hasLaptop.message as string}
-              </p>
-            )}
-          </div>
-          {hasLaptop === 0 && (
+            </div>
+          )}
+
+          {!isCertificateOnly && hasLaptop === 0 && (
             <div>
               <label className={labelClass}>
                 Computer <span className="text-primary">*</span>
