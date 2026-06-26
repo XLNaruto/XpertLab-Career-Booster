@@ -1,4 +1,5 @@
 import { useFormContext } from "react-hook-form";
+import { Info } from "lucide-react";
 import { labelClass } from "./styles";
 import type { ProfileFormData } from "./types";
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
@@ -248,17 +249,34 @@ const CourseDetails = forwardRef<CourseDetailsHandle, CourseDetailsProps>(
     const computerLabel =
       computerList.find((o) => o.value === values.computerId)?.label || "";
 
+    // Certificate enrollment hides the training-only fields.
+    const isCertificateOnly = values.enrollmentType === "CERTIFICATE_ONLY";
+
     return (
       <div className="space-y-4">
+        <div className="flex items-start gap-2.5 rounded-xl border border-secondary/20 bg-secondary/[0.06] px-4 py-3">
+          <Info className="w-4 h-4 text-secondary shrink-0 mt-0.5" />
+          <p className="text-[12.5px] text-foreground/70 leading-relaxed">
+            To change your course details, please contact the Trainee Head.
+          </p>
+        </div>
         <div className="grid grid-cols-3 gap-3">
           <ReadOnlyField label="Course" value={courseLabel} />
           <ReadOnlyField label="Enrollment Type" value={enrollmentLabel} />
-          <ReadOnlyField label="Trainee Area" value={traineeAreaLabel} />
-          <ReadOnlyField label="Batch Day" value={batchDayLabel} />
-          <ReadOnlyField label="Batch Time" value={batchTimeLabel} />
+          {!isCertificateOnly && (
+            <ReadOnlyField label="Trainee Area" value={traineeAreaLabel} />
+          )}
+          {!isCertificateOnly && (
+            <ReadOnlyField label="Batch Day" value={batchDayLabel} />
+          )}
+          {!isCertificateOnly && (
+            <ReadOnlyField label="Batch Time" value={batchTimeLabel} />
+          )}
           <ReadOnlyField label="Joining Date" value={joiningDateLabel} />
-          <ReadOnlyField label="Device Availability" value={deviceLabel} />
-          {values.hasLaptop === 0 && (
+          {!isCertificateOnly && (
+            <ReadOnlyField label="Device Availability" value={deviceLabel} />
+          )}
+          {!isCertificateOnly && values.hasLaptop === 0 && (
             <ReadOnlyField label="Computer" value={computerLabel} />
           )}
         </div>

@@ -43,6 +43,38 @@ const emptyData: ExerciseListData = {
   exercises: [],
 };
 
+// Maps an exercise requestStatus to a human label and badge styles.
+type StatusConfig = { label: string; className: string };
+
+const statusConfig: Record<string, StatusConfig> = {
+  NOT_SENT: {
+    label: "Pending",
+    className: "bg-amber-100 text-amber-700 border border-amber-200",
+  },
+  PENDING: {
+    label: "Requested",
+    className: "bg-blue-100 text-blue-700 border border-blue-200",
+  },
+  REQUESTED: {
+    label: "Requested",
+    className: "bg-blue-100 text-blue-700 border border-blue-200",
+  },
+  APPROVED: {
+    label: "Approved",
+    className: "bg-emerald-100 text-emerald-700 border border-emerald-200",
+  },
+};
+
+const getStatusConfig = (status?: string): StatusConfig | null => {
+  if (!status) return null;
+  return (
+    statusConfig[status.toUpperCase()] || {
+      label: status,
+      className: "bg-foreground/[0.06] text-muted-foreground border border-foreground/[0.12]",
+    }
+  );
+};
+
 const ExerciseList = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -117,8 +149,8 @@ const ExerciseList = () => {
             {data.course?.courseName ? ` · ${data.course.courseName}` : ""}
           </p>
         </div>
-        <button onClick={() => navigate("/exercises/technology")} className="px-5 py-2.5 rounded-xl text-sm font-medium text-muted-foreground border border-foreground/[0.15] hover:border-foreground/[0.3] hover:text-foreground hover:bg-white/[0.5] transition-all duration-200">
-          ← All Technologies
+        <button onClick={() => navigate("/exercises/technology")} className="shrink-0 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-muted-foreground border border-foreground/[0.15] hover:border-foreground/[0.3] hover:text-foreground hover:bg-white/[0.5] transition-all duration-200">
+          <ArrowLeft className="w-4 h-4" /> All Technologies
         </button>
       </motion.div>
 
@@ -216,6 +248,7 @@ const ExerciseList = () => {
           variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.07 } } }}
         >
           {exercises.map((exercise, index) => {
+            const status = getStatusConfig(exercise.requestStatus);
             return (
               <motion.div
                 key={exercise.trainingexerciseId}
@@ -237,9 +270,19 @@ const ExerciseList = () => {
                     <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-400 to-cyan-600 flex items-center justify-center text-white font-bold text-sm shrink-0 shadow-md group-hover:scale-110 group-hover:rotate-3 transition-transform duration-300">
                       {String(index + 1).padStart(2, "0")}
                     </div>
-                    {/* Arrow */}
-                    <div className="w-8 h-8 rounded-lg bg-foreground/[0.04] group-hover:bg-primary/10 flex items-center justify-center transition-all duration-300">
-                      <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all duration-300" />
+                    <div className="flex items-center gap-2">
+                      {/* Status badge */}
+                      {status && (
+                        <span
+                          className={`px-2.5 py-1 rounded-full text-[11px] font-semibold ${status.className}`}
+                        >
+                          {status.label}
+                        </span>
+                      )}
+                      {/* Arrow */}
+                      <div className="w-8 h-8 rounded-lg bg-foreground/[0.04] group-hover:bg-primary/10 flex items-center justify-center transition-all duration-300">
+                        <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all duration-300" />
+                      </div>
                     </div>
                   </div>
 

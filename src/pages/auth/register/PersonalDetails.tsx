@@ -216,6 +216,7 @@ const PersonalDetails = forwardRef<StepHandle, PersonalDetailsProps>(
           param.append("birthDate", format(v.birthDate, "yyyy-MM-dd"));
           param.append("email", v.email);
           param.append("mobileNumber", v.mobile1);
+          param.append("mobileNumber2", v.mobile2);
           param.append("username", v.userName);
           if (v.password) param.append("password", v.password);
 

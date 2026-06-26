@@ -9,13 +9,14 @@ import { useFormContext, Controller } from "react-hook-form";
 import { format } from "date-fns";
 import Select from "react-select";
 import DatePicker from "react-date-picker";
+import PhoneInput from "react-phone-input-2";
+import "react-phone-input-2/lib/style.css";
 import "react-date-picker/dist/DatePicker.css";
 import "react-calendar/dist/Calendar.css";
 import {
   User,
   Mail,
   Lock,
-  Phone,
   Shield,
   Eye,
   EyeOff,
@@ -56,6 +57,8 @@ const prefixList = [
   { label: "Mrs.", value: "Mrs." },
 ];
 
+const phoneInputContainerClass = "phone-input--custom";
+
 const PersonalDetails = forwardRef<PersonalDetailsHandle, PersonalDetailsProps>(
   ({ existingPictureUrl, onSaved }, ref) => {
     const [showPassword, setShowPassword] = useState(false);
@@ -93,15 +96,25 @@ const PersonalDetails = forwardRef<PersonalDetailsHandle, PersonalDetailsProps>(
         // Password & confirm-password are cross-dependent: changing either one
         // must re-validate BOTH fields, otherwise typing in "password" never
         // fires the "confirm password" validation.
-        if (!hasTraineeId && (name === "password" || name === "confirmPassword")) {
+        if (name === "password" || name === "confirmPassword") {
           const pwd = (values.password || "").trim();
           const cpw = (values.confirmPassword || "").trim();
 
           // password field
-          if (!pwd) {
+          if (!hasTraineeId && !pwd) {
             methods.setError("password", {
               type: "manual",
               message: "Please Enter Password",
+            });
+          } else if (pwd && pwd.length < 6) {
+            methods.setError("password", {
+              type: "manual",
+              message: "Password must be at least 6 characters",
+            });
+          } else if (pwd && pwd.length > 20) {
+            methods.setError("password", {
+              type: "manual",
+              message: "Password cannot exceed 20 characters",
             });
           } else {
             methods.clearErrors("password");
@@ -441,34 +454,49 @@ const PersonalDetails = forwardRef<PersonalDetailsHandle, PersonalDetailsProps>(
             <label className={labelClass}>
               Mobile Number 1 <span className="text-primary">*</span>
             </label>
-            <div className="relative">
-              <div className={iconClass}>
-                <Phone className="w-4 h-4" />
-              </div>
-              <input
-                {...register("mobile1")}
-                placeholder="91 98765-43210"
-                type="tel"
-                className={inputClass}
-              />
-            </div>
+            <Controller
+              name="mobile1"
+              control={control}
+              render={({ field }) => (
+                <PhoneInput
+                  country="in"
+                  onlyCountries={["in"]}
+                  disableDropdown
+                  disableCountryCode
+                  value={field.value}
+                  onChange={(v) => field.onChange(v)}
+                  placeholder="Ex. 98765 43210"
+                  containerClass={phoneInputContainerClass}
+                  inputProps={{ name: field.name }}
+                />
+              )}
+            />
             {errors.mobile1 && (
               <p className={errorClass}>{errors.mobile1.message}</p>
             )}
           </div>
           <div>
             <label className={labelClass}>Mobile Number 2</label>
-            <div className="relative">
-              <div className={iconClass}>
-                <Phone className="w-4 h-4" />
-              </div>
-              <input
-                {...register("mobile2")}
-                placeholder="91 98765-43210"
-                type="tel"
-                className={inputClass}
-              />
-            </div>
+            <Controller
+              name="mobile2"
+              control={control}
+              render={({ field }) => (
+                <PhoneInput
+                  country="in"
+                  onlyCountries={["in"]}
+                  disableDropdown
+                  disableCountryCode
+                  value={field.value}
+                  onChange={(v) => field.onChange(v)}
+                  placeholder="Ex. 98765 43210"
+                  containerClass={phoneInputContainerClass}
+                  inputProps={{ name: field.name }}
+                />
+              )}
+            />
+            {errors.mobile2 && (
+              <p className={errorClass}>{errors.mobile2.message}</p>
+            )}
           </div>
         </div>
 
@@ -504,9 +532,7 @@ const PersonalDetails = forwardRef<PersonalDetailsHandle, PersonalDetailsProps>(
                   <Lock className="w-4 h-4" />
                 </div>
                 <input
-                  {...register("password", {
-                    minLength: { value: 6, message: "Min 6 characters" },
-                  })}
+                  {...register("password")}
                   placeholder="Leave blank to keep current"
                   type={showPassword ? "text" : "password"}
                   className={`${inputClass} !pr-10`}
@@ -535,12 +561,7 @@ const PersonalDetails = forwardRef<PersonalDetailsHandle, PersonalDetailsProps>(
                   <Shield className="w-4 h-4" />
                 </div>
                 <input
-                  {...register("confirmPassword", {
-                    validate: (value) =>
-                      !methods.getValues("password") ||
-                      value === methods.getValues("password") ||
-                      "Passwords do not match",
-                  })}
+                  {...register("confirmPassword")}
                   placeholder="Leave blank to keep current"
                   type={showConfirmPassword ? "text" : "password"}
                   className={`${inputClass} !pr-10`}

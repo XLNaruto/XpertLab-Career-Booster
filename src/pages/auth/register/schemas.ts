@@ -92,6 +92,21 @@ export const personalDetailsSchema = z
     }
 
     if (d.password && d.password.trim() !== "") {
+      const pwd = d.password.trim();
+      if (pwd.length < 6) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["password"],
+          message: "Password must be at least 6 characters",
+        });
+      } else if (pwd.length > 20) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["password"],
+          message: "Password cannot exceed 20 characters",
+        });
+      }
+
       if (!d.confirmPassword || d.confirmPassword.trim() === "") {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,

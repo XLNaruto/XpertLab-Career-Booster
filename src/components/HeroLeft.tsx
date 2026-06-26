@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
+import { ArrowRight } from "lucide-react";
 
 const useCountUp = (target: number, duration = 1800, delay = 600) => {
   const [count, setCount] = useState(0);

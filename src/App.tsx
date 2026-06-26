@@ -22,7 +22,7 @@ import { PrivateRoute, PublicRoute } from "./components/auth/RouteGuards";
 const { BASE_URL } = import.meta.env;
 const queryClient = new QueryClient();
 
-// console.log = console.warn = console.error = () => {};
+console.log = console.warn = console.error = () => {};
 
 const App = () => (
 

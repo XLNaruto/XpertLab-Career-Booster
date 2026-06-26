@@ -1,5 +1,6 @@
 import { useFormContext } from "react-hook-form";
 import { FileText, CheckCircle, Eye, Info } from "lucide-react";
+import DocumentLightbox from "@/components/DocumentLightbox";
 import { inputClass, labelClass, errorClass, iconClass } from "./styles";
 import type { ProfileFormData, TraineeDocument } from "./types";
 import {
@@ -41,6 +42,7 @@ const Documents = forwardRef<DocumentDetailsHandle, DocumentDetailsProps>(
     const fetchedForRef = useRef<string>("");
 
     const [masterList, setMasterList] = useState<MasterDocument[]>([]);
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
     const traineeId = methods.watch("traineeId");
     const documents = methods.watch("documents") || [];
 
@@ -277,7 +279,8 @@ const Documents = forwardRef<DocumentDetailsHandle, DocumentDetailsProps>(
                         <img
                           src={doc.url || doc.document}
                           alt={doc.name}
-                          className="w-full h-24 object-cover rounded-lg border border-foreground/[0.06]"
+                          onClick={() => setPreviewUrl(doc.url || doc.document)}
+                          className="w-full h-24 object-cover rounded-lg border border-foreground/[0.06] cursor-zoom-in"
                         />
                       ) : (
                         <div className="w-full h-24 rounded-lg border border-foreground/[0.06] bg-white/60 flex flex-col items-center justify-center gap-1">
@@ -296,7 +299,7 @@ const Documents = forwardRef<DocumentDetailsHandle, DocumentDetailsProps>(
                       <div className="mt-auto">
                         <button
                           type="button"
-                          onClick={() => window.open(doc.url || doc.document, "_blank")}
+                          onClick={() => setPreviewUrl(doc.url || doc.document)}
                           disabled={!doc.url && !doc.document}
                           className="w-full py-1.5 text-[12px] font-semibold rounded-lg bg-white/70 border border-foreground/[0.1] text-foreground/80 hover:bg-white transition-all flex items-center justify-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed"
                         >
@@ -318,6 +321,8 @@ const Documents = forwardRef<DocumentDetailsHandle, DocumentDetailsProps>(
             })}
           </div>
         </div>
+
+        <DocumentLightbox url={previewUrl} onClose={() => setPreviewUrl(null)} />
       </div>
     );
   },
