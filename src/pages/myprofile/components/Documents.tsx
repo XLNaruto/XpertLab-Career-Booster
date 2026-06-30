@@ -106,11 +106,13 @@ const Documents = forwardRef<DocumentDetailsHandle, DocumentDetailsProps>(
           ? data
           : data.list || data.documents || [];
         const existing: TraineeDocument[] = (docs || []).map((d: any) => ({
-          traineedocumentId: String(d.traineedocumentId),
+          traineedocumentId: String(
+            d.traineedocumentId ?? d.employeedocumentId ?? "",
+          ),
           name: d.name || "",
           isCompulsory: d.isCompulsory ?? 0,
-          document: d.document || "",
-          url: d.url || d.document || "",
+          document: d.document || d.path || "",
+          url: d.url || d.document || d.path || "",
         }));
         methods.setValue("documents", buildInitialDocuments(list, existing));
         if (data.aadharcardNumber || data.aadharNumber) {

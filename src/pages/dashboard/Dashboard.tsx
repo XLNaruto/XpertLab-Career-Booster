@@ -502,11 +502,8 @@ const Dashboard = () => {
   const [selectedCourse, setSelectedCourse] = useState<AdvertiseCourse | null>(null);
   const [feeDialogOpen, setFeeDialogOpen] = useState(false);
 
-  // Raw data used to compute the profile-completion checklist
-  const [personalData, setPersonalData] = useState<any>(null);
-  const [guardianList, setGuardianList] = useState<any[]>([]);
-  const [educationList, setEducationList] = useState<any[]>([]);
-  const [documentsComplete, setDocumentsComplete] = useState(false);
+  // Per-section completion flags, served directly by personaldetail/get
+  const [completedStep, setCompletedStep] = useState<Record<string, boolean>>({});
 
   const fetchPersonalDetails = async () => {
     const traineeId = getEncodedCookie("traineeId");
@@ -522,62 +519,12 @@ const Dashboard = () => {
     ) {
       const data = response.data.data || {};
       setFirstName(data.firstName || "");
-      setPersonalData(data);
-    }
-  };
-
-  // Fetch the remaining profile sections (in parallel) for the completion checklist
-  const profileCompletionApiCall = async () => {
-    const traineeId = getEncodedCookie("traineeId");
-    if (!traineeId) return;
-    const [guardianRes, educationRes, documentRes, masterDocRes]: any[] =
-      await Promise.all([
-        postData("private/trainee/guardiandetail/list", { traineeId }, apiHeader(false, 2)),
-        postData("private/trainee/educationdetail/list", { traineeId }, apiHeader(false, 2)),
-        postData("private/trainee/documentdetail/list", { traineeId }, apiHeader(false, 2)),
-        postData("master/traineedocument/list", {}, apiHeader(false, 2)),
-      ]);
-
-    const ok = (r: any) =>
-      String(r?.status) === "200" && String(r?.data?.status) === "200";
-
-    if (ok(guardianRes)) {
-      const d = guardianRes.data.data;
-      setGuardianList(Array.isArray(d) ? d : d?.list || []);
-    }
-    if (ok(educationRes)) {
-      const d = educationRes.data.data;
-      setEducationList(Array.isArray(d) ? d : d?.list || []);
-    }
-
-    // Documents complete = aadhar present AND every compulsory document uploaded
-    if (ok(documentRes) && ok(masterDocRes)) {
-      const docData = documentRes.data.data || {};
-      const uploaded: any[] = Array.isArray(docData)
-        ? docData
-        : docData.list || docData.documents || [];
-      const aadhar = docData.aadharcardNumber || docData.aadharNumber || "";
-      const master: any[] = masterDocRes.data.data?.list || [];
-      const compulsory = master.filter(
-        (m) =>
-          m.isCompulsory === true ||
-          m.isCompulsory === 1 ||
-          String(m.isCompulsory) === "1"
-      );
-      const allCompulsoryUploaded = compulsory.every((m) =>
-        uploaded.some(
-          (u) =>
-            String(u.traineedocumentId) === String(m.traineedocumentId) &&
-            !!u.document
-        )
-      );
-      setDocumentsComplete(!!aadhar && allCompulsoryUploaded);
+      setCompletedStep(data.completedStep || {});
     }
   };
 
   useEffect(() => {
     fetchPersonalDetails();
-    profileCompletionApiCall();
   }, []);
 
   const dashboardAnalysisApiCall = async () => {
@@ -657,36 +604,15 @@ const Dashboard = () => {
   const courses = training.courses;
   const overall = training.overall;
 
-  // Profile-completion checklist: each section + whether it's filled in.
-  // "Complete" rules mirror the required fields in myprofile/components/schemas.ts.
-  const filled = (v: any) => v !== undefined && v !== null && String(v).trim() !== "";
+  // Profile-completion checklist: each section + whether it's complete, driven
+  // by the `completedStep` flags returned from personaldetail/get.
   const profileSections = [
-    {
-      label: "Personal Details",
-      tab: "Personal Details",
-      complete:
-        !!personalData &&
-        [
-          personalData.firstName,
-          personalData.lastName,
-          personalData.gender,
-          personalData.birthDate,
-          personalData.email,
-          personalData.mobileNumber,
-          personalData.username,
-        ].every(filled),
-    },
-    {
-      label: "Location Details",
-      tab: "Location Details",
-      complete:
-        !!personalData &&
-        [personalData.stateId, personalData.cityId, personalData.address].every(filled),
-    },
-    { label: "Guardian Details", tab: "Guardian Details", complete: guardianList.length > 0 },
-    { label: "Education Details", tab: "Education Details", complete: educationList.length > 0 },
-    { label: "Course Details", tab: "Course Details", complete: !!course },
-    { label: "Documents", tab: "Documents", complete: documentsComplete },
+    { label: "Personal Details", tab: "Personal Details", complete: !!completedStep.basicDetail },
+    { label: "Location Details", tab: "Location Details", complete: !!completedStep.location },
+    { label: "Guardian Details", tab: "Guardian Details", complete: !!completedStep.guardianDetail },
+    { label: "Education Details", tab: "Education Details", complete: !!completedStep.educationDetail },
+    { label: "Course Details", tab: "Course Details", complete: !!completedStep.courseDetail },
+    { label: "Documents", tab: "Documents", complete: !!completedStep.documents },
   ];
   const completedSections = profileSections.filter((s) => s.complete).length;
   const profilePercent = Math.round((completedSections / profileSections.length) * 100);
