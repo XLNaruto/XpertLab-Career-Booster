@@ -1,6 +1,6 @@
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { ChevronRight, ArrowRight, ArrowLeft, Code2, PackageOpen, Sparkles } from "lucide-react";
+import { ChevronRight, ArrowRight, ArrowLeft, Code2, PackageOpen, Sparkles, Lock } from "lucide-react";
 import { motion } from "framer-motion";
 import { apiHeader, postData } from "@/utils/ApiHelper";
 import { decryptUrlData, encryptUrlData, toasterrormsg } from "@/utils/reusable";
@@ -15,6 +15,7 @@ type ApiExercise = {
   exerciseSpecificImages: string;
   order: number;
   requestStatus: string;
+  locked: boolean;
 };
 
 // Shape of the exercise list API response
@@ -249,6 +250,57 @@ const ExerciseList = () => {
         >
           {exercises.map((exercise, index) => {
             const status = getStatusConfig(exercise.requestStatus);
+
+            // Locked exercise — game-style level lock, not clickable
+            if (exercise.locked) {
+              return (
+                <motion.div
+                  key={exercise.trainingexerciseId}
+                  variants={{
+                    hidden: { opacity: 0, y: 25, scale: 0.95 },
+                    visible: { opacity: 1, y: 0, scale: 1, transition: { type: "spring" as const, stiffness: 300, damping: 24 } },
+                  }}
+                >
+                  <div className="group relative overflow-hidden flex flex-col h-full rounded-2xl p-5 border border-pink-300/40 bg-gradient-to-br from-pink-500/[0.08] via-rose-500/[0.06] to-pink-500/[0.08] backdrop-blur-[20px] shadow-[var(--shadow-sm)] cursor-not-allowed select-none">
+                    {/* Colorful diagonal stripes */}
+                    <div
+                      className="pointer-events-none absolute inset-0 opacity-[0.07] text-pink-600"
+                      style={{
+                        backgroundImage:
+                          "repeating-linear-gradient(45deg, currentColor 0 10px, transparent 10px 20px)",
+                      }}
+                    />
+                    {/* Soft glow blob */}
+                    <div className="pointer-events-none absolute -top-12 -right-12 w-32 h-32 rounded-full bg-gradient-to-br from-pink-500 to-rose-500 opacity-[0.15] blur-2xl" />
+                    {/* "LOCKED" corner ribbon */}
+                    <div className="pointer-events-none absolute -right-[42px] top-[16px] rotate-45 bg-gradient-to-r from-pink-600 to-rose-600 text-white text-[10px] font-bold tracking-[0.15em] px-12 py-1 shadow-md">
+                      LOCKED
+                    </div>
+
+                    <div className="relative flex items-center justify-between mb-4">
+                      {/* Number indicator with pulsing lock */}
+                      <div className="relative w-10 h-10 rounded-xl bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center text-white font-bold text-sm shrink-0 shadow-md">
+                        {String(index + 1).padStart(2, "0")}
+                        <motion.span
+                          animate={{ scale: [1, 1.15, 1] }}
+                          transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                          className="absolute -bottom-2 -right-2 w-6 h-6 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 text-white flex items-center justify-center shadow-md ring-2 ring-white"
+                        >
+                          <Lock className="w-3 h-3" />
+                        </motion.span>
+                      </div>
+                    </div>
+
+                    <h3 className="relative text-[15px] font-bold text-foreground mb-1.5">{exercise.name}</h3>
+                    <div className="relative flex items-center gap-1.5 text-[13px] font-semibold text-transparent bg-clip-text bg-gradient-to-r from-pink-600 to-rose-600">
+                      <Lock className="w-3.5 h-3.5 text-rose-600" />
+                      Complete the previous exercise to unlock
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            }
+
             return (
               <motion.div
                 key={exercise.trainingexerciseId}

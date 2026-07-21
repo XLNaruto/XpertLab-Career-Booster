@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { ChevronRight, ChevronLeft, Code2, Palette, Globe, Database, Smartphone, Server, Layers, BookOpen, CheckCircle2, PackageOpen, Sparkles } from "lucide-react";
+import { ChevronRight, ChevronLeft, Code2, Palette, Globe, Database, Smartphone, Server, Layers, BookOpen, CheckCircle2, PackageOpen, Sparkles, Lock } from "lucide-react";
 import { motion } from "framer-motion";
 import { apiHeader, postData } from "@/utils/ApiHelper";
 import { encryptUrlData, toasterrormsg } from "@/utils/reusable";
@@ -23,6 +23,7 @@ type ApiTechnology = {
   learningOrder: number;
   exerciseCount: number;
   completedCount: number;
+  locked: boolean;
 };
 
 // Cards per page before pagination kicks in
@@ -223,6 +224,69 @@ const ExerciseTechnologyList = () => {
                   ? Math.round((tech.completedCount / tech.exerciseCount) * 100)
                   : 0;
               const isComplete = pct === 100;
+
+              // Locked technology — game-style level lock, not clickable
+              if (tech.locked) {
+                return (
+                  <motion.div
+                    key={tech.technologyId}
+                    variants={cardVariants}
+                    whileHover={{ y: -4 }}
+                    className="group relative overflow-hidden rounded-2xl p-6 border border-pink-300/40 bg-gradient-to-br from-pink-500/[0.08] via-rose-500/[0.06] to-pink-500/[0.08] backdrop-blur-[20px] shadow-[var(--shadow-sm)] hover:shadow-[var(--shadow-md)] transition-all duration-300 text-left cursor-not-allowed select-none"
+                  >
+                    {/* Colorful diagonal stripes for a locked feel */}
+                    <div
+                      className="pointer-events-none absolute inset-0 opacity-[0.07] text-pink-600"
+                      style={{
+                        backgroundImage:
+                          "repeating-linear-gradient(45deg, currentColor 0 10px, transparent 10px 20px)",
+                      }}
+                    />
+                    {/* Soft glow blob */}
+                    <div className="pointer-events-none absolute -top-12 -right-12 w-32 h-32 rounded-full bg-gradient-to-br from-pink-500 to-rose-500 opacity-[0.15] blur-2xl" />
+
+                    {/* "LOCKED" corner ribbon */}
+                    <div className="pointer-events-none absolute -right-[42px] top-[18px] rotate-45 bg-gradient-to-r from-pink-600 to-rose-600 text-white text-[10px] font-bold tracking-[0.15em] px-12 py-1 shadow-md">
+                      LOCKED
+                    </div>
+
+                    <div className="relative flex items-start justify-between mb-4">
+                      {/* Colorful icon tile with a pulsing lock */}
+                      <div className="relative w-14 h-14 rounded-2xl bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center text-white shadow-lg">
+                        <Code2 className="w-6 h-6 opacity-80" />
+                        <motion.span
+                          animate={{ scale: [1, 1.15, 1] }}
+                          transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                          className="absolute -bottom-2 -right-2 w-7 h-7 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 text-white flex items-center justify-center shadow-md ring-2 ring-white"
+                        >
+                          <Lock className="w-3.5 h-3.5" />
+                        </motion.span>
+                      </div>
+                    </div>
+
+                    <h3 className="relative text-lg font-bold text-foreground mb-3">{tech.name}</h3>
+
+                    {/* Locked hint */}
+                    <div className="relative flex items-center gap-2 mb-4">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-pink-500/[0.1] text-[11.5px] font-semibold text-pink-600">
+                        <BookOpen className="w-3.5 h-3.5" />
+                        {tech.exerciseCount} {tech.exerciseCount === 1 ? "exercise" : "exercises"}
+                      </span>
+                    </div>
+
+                    {/* Locked progress bar */}
+                    <div className="relative">
+                      <div className="w-full h-1.5 rounded-full bg-pink-500/[0.12] overflow-hidden" />
+                    </div>
+
+                    <div className="relative flex items-center gap-1.5 mt-4 text-xs font-semibold text-transparent bg-clip-text bg-gradient-to-r from-pink-600 to-rose-600">
+                      <Lock className="w-3.5 h-3.5 text-rose-600" />
+                      Complete the previous technology to unlock
+                    </div>
+                  </motion.div>
+                );
+              }
+
               return (
                 <motion.button
                   key={tech.technologyId}

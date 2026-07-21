@@ -25,22 +25,24 @@ const queryClient = new QueryClient();
 console.log = console.warn = console.error = () => {};
 
 const App = () => (
-
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter basename={BASE_URL}>
-          <Routes>
-            <Route element={<PublicRoute />}>
+  <QueryClientProvider client={queryClient}>
+    <TooltipProvider>
+      <Toaster />
+      <Sonner />
+      <BrowserRouter basename={BASE_URL}>
+        <Routes>
+          <Route element={<PublicRoute />}>
             <Route path="/" element={<Welcome />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-            </Route>
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+          </Route>
           <Route element={<PrivateRoute />}>
             <Route element={<MainLayout />}>
               <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/exercises" element={<Navigate to="/exercises/technology" replace />} />
+              <Route
+                path="/exercises"
+                element={<Navigate to="/exercises/technology" replace />}
+              />
               <Route path="/exercises/technology" element={<ExerciseList />} />
               <Route path="/exercises/list" element={<SubExerciseList />} />
               <Route path="/exercises/details" element={<ExerciseDetail />} />
@@ -51,15 +53,12 @@ const App = () => (
               <Route path="/profile" element={<MyProfile />} />
             </Route>
           </Route>
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
-    </QueryClientProvider>
-)
-
-
-
+          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </BrowserRouter>
+    </TooltipProvider>
+  </QueryClientProvider>
+);
 
 export default App;
