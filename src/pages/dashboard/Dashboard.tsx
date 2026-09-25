@@ -4,6 +4,7 @@ import { motion, useInView } from "motion/react";
 import WelcomePopup from "@/components/WelcomePopup";
 import DailyGreetingPopup from "@/components/DailyGreetingPopup";
 import { CalendarDays, CheckCircle2, XCircle, TrendingUp, Clock, Star, PartyPopper, ChevronLeft, ChevronRight, GraduationCap, Circle, Laptop, Sparkles, Info, IndianRupee } from "lucide-react";
+import { Tooltip as UiTooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Calendar, momentLocalizer, type ToolbarProps } from "react-big-calendar";
 import moment from "moment";
@@ -77,7 +78,7 @@ const emptyAnalysis: DashboardAnalysis = {
 };
 
 // Status of a single day in the attendance calendar
-type DayStatus = "present" | "absent" | "upcoming" | "weekend" | "holiday";
+type DayStatus = "present" | "absent" | "upcoming" | "weekend" | "holiday" | "extra" | "outside";
 
 type CalendarDay = {
   date: string;
@@ -85,6 +86,14 @@ type CalendarDay = {
   weekday: number;
   isToday: boolean;
   status: DayStatus;
+};
+
+// Corner dot shown on today's cell when today also has a status
+const TODAY_STATUS_BADGE: Record<string, { label: string; color: string }> = {
+  holiday: { label: "Holiday", color: "rgb(251 191 36)" },
+  extra: { label: "Extra Day", color: "rgb(167 139 250)" },
+  present: { label: "Present", color: "rgb(74 222 128)" },
+  absent: { label: "Absent", color: "hsl(342 80% 53%)" },
 };
 
 // Shape of the dashboard calendar API response
@@ -257,9 +266,22 @@ const AttendanceCalendar = ({
     return map;
   }, [calendar]);
 
+  // Map each holiday date to its name (for the today tooltip)
+  const holidayNameByDate = useMemo(() => {
+    const map: Record<string, string> = {};
+    (calendar?.holidays || []).forEach((h) => {
+      if (!h?.from) return;
+      const start = moment(h.from).startOf("day");
+      const end = moment(h.to || h.from).startOf("day");
+      for (let d = start.clone(); d.isSameOrBefore(end, "day"); d.add(1, "day")) {
+        map[d.format("YYYY-MM-DD")] = h.name;
+      }
+    });
+    return map;
+  }, [calendar]);
+
   const todayStr = calendar?.today || "";
   const courseStartStr = calendar?.courseStartDate || "";
-  const courseEndStr = calendar?.courseEndDate || "";
 
   const components = useMemo(() => ({
     toolbar: (props: ToolbarProps) => <CustomToolbar label={props.label} onNavigate={props.onNavigate} />,
@@ -272,14 +294,13 @@ const AttendanceCalendar = ({
         const isToday = dateStr === todayStr;
         const dow = moment(date).day(); // 0 = Sunday, 6 = Saturday
         const isWeekend = dow === 0 || dow === 6;
-        // Days before the course starts or after it ends are disabled
+        // Days before the course starts are disabled
         const isOutsideCourse =
-          (!!courseStartStr && moment(date).isBefore(moment(courseStartStr), "day")) ||
-          (!!courseEndStr && moment(date).isAfter(moment(courseEndStr), "day"));
-        // Saturday & Sunday are always off days
-        const status: DayStatus | undefined = isWeekend
-          ? "weekend"
-          : statusByDate[dateStr];
+          !!courseStartStr && moment(date).isBefore(moment(courseStartStr), "day");
+        // Saturday & Sunday are off days, unless attended as an extra day
+        const apiStatus = statusByDate[dateStr];
+        const status: DayStatus | undefined =
+          isWeekend && apiStatus !== "extra" ? "weekend" : apiStatus;
 
         let bg = "transparent";
         let shadow = "none";
@@ -305,16 +326,28 @@ const AttendanceCalendar = ({
         } else if (status === "holiday") {
           bg = "rgb(254 243 199)";
           color = "rgb(180 83 9)";
+        } else if (status === "extra") {
+          bg = "rgb(237 233 254)";
+          color = "rgb(109 40 217)";
         } else if (status === "weekend") {
           color = "hsl(var(--foreground) / 0.25)";
         }
 
         const highlighted =
-          isToday || status === "present" || status === "absent" || status === "holiday";
+          isToday || status === "present" || status === "absent" || status === "holiday" || status === "extra";
 
-        return (
+        // Today's cell hides its status colour, so mark it with a corner dot + tooltip
+        const todayBadge = isToday && !isOutsideCourse ? TODAY_STATUS_BADGE[status as string] : undefined;
+        const tooltipText = todayBadge
+          ? status === "holiday" && holidayNameByDate[dateStr]
+            ? `${todayBadge.label}: ${holidayNameByDate[dateStr]}`
+            : todayBadge.label
+          : undefined;
+
+        const cell = (
           <div
             style={{
+              position: "relative",
               width: "100%",
               height: "100%",
               display: "flex",
@@ -330,11 +363,33 @@ const AttendanceCalendar = ({
             }}
           >
             {label}
+            {todayBadge && (
+              <span
+                style={{
+                  position: "absolute",
+                  top: "5px",
+                  right: "5px",
+                  width: "8px",
+                  height: "8px",
+                  borderRadius: "9999px",
+                  background: todayBadge.color,
+                  boxShadow: "0 0 0 2px white",
+                }}
+              />
+            )}
           </div>
+        );
+
+        if (!tooltipText) return cell;
+        return (
+          <UiTooltip>
+            <TooltipTrigger asChild>{cell}</TooltipTrigger>
+            <TooltipContent side="top" className="text-xs">{tooltipText}</TooltipContent>
+          </UiTooltip>
         );
       },
     },
-  }), [currentDate, statusByDate, todayStr, courseStartStr, courseEndStr]);
+  }), [currentDate, statusByDate, holidayNameByDate, todayStr, courseStartStr]);
 
   return (
     <motion.div
@@ -473,6 +528,10 @@ const AttendanceCalendar = ({
         <div className="flex items-center gap-2">
           <div className="w-2.5 h-2.5 rounded-full bg-amber-400" />
           <span className="text-[11px] text-muted-foreground">Holiday</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-2.5 h-2.5 rounded-full bg-violet-400" />
+          <span className="text-[11px] text-muted-foreground">Extra</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-2.5 h-2.5 rounded-full bg-secondary" />
